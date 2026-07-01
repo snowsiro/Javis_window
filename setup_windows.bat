@@ -1,17 +1,40 @@
 @echo off
-chcp 65001 >nul
-REM WhisperFlow (JARVIS) 최초 설치 스크립트 (Windows)
+REM WhisperFlow (JARVIS) first-time setup script (Windows)
 cd /d "%~dp0"
-echo === 가상환경 생성 ===
+
+where python >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Python not found in PATH.
+    echo Install Python 3.10+ from https://www.python.org/downloads/
+    echo IMPORTANT: check "Add Python to PATH" during installation.
+    pause
+    exit /b 1
+)
+
+echo === Creating virtual environment ===
 python -m venv venv
+if errorlevel 1 (
+    echo [ERROR] Failed to create virtual environment.
+    pause
+    exit /b 1
+)
+
 call venv\Scripts\activate.bat
-echo === pip 업그레이드 ===
+
+echo === Upgrading pip ===
 python -m pip install --upgrade pip
-echo === 핵심 의존성 설치 ===
+
+echo === Installing core dependencies ===
 pip install -r requirements.txt
+if errorlevel 1 (
+    echo [ERROR] Dependency installation failed. See messages above.
+    pause
+    exit /b 1
+)
+
 echo.
-echo 선택 기능(카메라/제스처/얼굴 인식)을 사용하려면:
+echo Optional features (camera / gesture / face recognition):
 echo   pip install -r requirements-extras.txt
 echo.
-echo 설치 완료. run_whisperflow.bat 로 실행하세요.
+echo Setup complete. Run run_whisperflow.bat to start.
 pause
