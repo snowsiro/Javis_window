@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 REM JARVIS Chrome — 디버그 프로필로 Chrome 실행 + 브라우저 피드 시작 (Windows)
 REM 사용법: scripts\jarvis_chrome.bat
 setlocal

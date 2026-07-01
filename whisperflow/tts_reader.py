@@ -5,6 +5,7 @@ pyttsx3 는 Windows(SAPI5) / macOS(NSSS) / Linux(espeak) 를 모두 지원하므
 크로스 플랫폼으로 동작한다.
 """
 
+import sys
 import threading
 from typing import Optional
 
@@ -13,6 +14,45 @@ try:
     HAS_PYTTSX3 = True
 except ImportError:
     HAS_PYTTSX3 = False
+
+_IS_WINDOWS = sys.platform.startswith("win")
+
+
+def _com_initialize() -> bool:
+    """Windows SAPI5(COM)를 현재 스레드에서 사용 가능하게 초기화.
+
+    pyttsx3 를 백그라운드 스레드에서 쓰려면 스레드마다 CoInitialize 가
+    필요하다 (없으면 'CoInitialize has not been called' 에러).
+    초기화에 성공(또는 이미 초기화)하면 True 반환.
+    """
+    if not _IS_WINDOWS:
+        return False
+    try:
+        import pythoncom  # pywin32
+        pythoncom.CoInitialize()
+        return True
+    except Exception:
+        try:
+            import comtypes
+            comtypes.CoInitialize()
+            return True
+        except Exception:
+            return False
+
+
+def _com_uninitialize() -> None:
+    """_com_initialize 와 짝을 이루는 해제."""
+    if not _IS_WINDOWS:
+        return
+    try:
+        import pythoncom
+        pythoncom.CoUninitialize()
+    except Exception:
+        try:
+            import comtypes
+            comtypes.CoUninitialize()
+        except Exception:
+            pass
 
 
 def detect_language(text: str) -> str:
@@ -94,12 +134,13 @@ class TTSReader:
         self._rate = rate
 
     def _list_voices(self) -> list:
-        """설치된 음성 목록(캐시)."""
+        """설치된 음성 목록(캐시). 어떤 스레드에서 불려도 안전 (COM 초기화 포함)."""
         if self._voice_cache is not None:
             return self._voice_cache
         if not HAS_PYTTSX3:
             self._voice_cache = []
             return self._voice_cache
+        com_ok = _com_initialize()
         try:
             engine = pyttsx3.init()
             voices = engine.getProperty("voices")
@@ -110,6 +151,9 @@ class TTSReader:
                 pass
         except Exception:
             self._voice_cache = []
+        finally:
+            if com_ok:
+                _com_uninitialize()
         return self._voice_cache
 
     def set_voice(self, voice_name: str) -> None:
@@ -169,6 +213,7 @@ class TTSReader:
         def _run():
             with self._lock:
                 self._speaking = True
+            com_ok = _com_initialize()  # SAPI5는 스레드마다 COM 초기화 필요
             try:
                 engine = pyttsx3.init()
                 engine.setProperty("rate", self._rate)
@@ -187,6 +232,8 @@ class TTSReader:
                 with self._lock:
                     self._speaking = False
                     self._engine = None
+                if com_ok:
+                    _com_uninitialize()
 
         threading.Thread(target=_run, daemon=True).start()
 
