@@ -35,7 +35,13 @@ def log(msg):
     timestamp = datetime.datetime.now().strftime("%H:%M:%S")
     line = f"[{timestamp}] {msg}"
     print(line)
-    sys.stdout.flush()
+    # 윈도우 windowed 실행(pythonw/PyInstaller console=False)에서는
+    # sys.stdout 이 None 이므로 flush 를 가드한다.
+    try:
+        if sys.stdout is not None:
+            sys.stdout.flush()
+    except Exception:
+        pass
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(line + "\n")

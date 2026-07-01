@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 REM WhisperFlow (JARVIS) 최초 설치 스크립트 (Windows)
 cd /d "%~dp0"
 echo === 가상환경 생성 ===
