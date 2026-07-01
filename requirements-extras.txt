@@ -1,0 +1,24 @@
+# WhisperFlow (JARVIS) — 선택 기능 의존성 (카메라/제스처/얼굴 인식/HEIC)
+# 설치: pip install -r requirements-extras.txt
+#
+# 아래 기능을 사용할 때만 필요합니다:
+#   - 카메라 피드 / 브라우저 피드
+#   - 손 제스처 컨트롤 (MediaPipe)
+#   - 얼굴 인식/등록 (InsightFace + FER)
+#   - HEIC 이미지 업로드 자동 변환
+
+# 카메라 / 컴퓨터 비전
+opencv-python>=4.8.0
+
+# 손 제스처 인식
+mediapipe>=0.10.9
+
+# 얼굴 인식 / 감정 인식
+insightface>=0.7.3
+fer>=22.5.1
+
+# HEIC/HEIF → JPG 변환 (모바일 업로드)
+pillow-heif>=0.13.0
+
+# TARS 음성 후처리는 ffmpeg 실행 파일이 PATH 에 있어야 합니다 (별도 설치).
+# https://www.gyan.dev/ffmpeg/builds/ 등에서 설치 후 PATH 등록
