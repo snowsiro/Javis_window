@@ -1,0 +1,5189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>JARVIS HUD - WhisperFlow</title>
+<!-- PWA / 홈 화면 추가용 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<link rel="apple-touch-icon" href="/jarvis-icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/jarvis-icon-192.png">
+<meta name="theme-color" content="#0a0a1a">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --theme-r: 0;
+    --theme-g: 212;
+    --theme-b: 255;
+    --theme: rgb(var(--theme-r), var(--theme-g), var(--theme-b));
+    --theme-03: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.3);
+    --theme-015: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.15);
+    --theme-02: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.2);
+    --theme-04: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.4);
+    --theme-05: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.5);
+    --theme-08: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.8);
+    --theme-01: rgba(var(--theme-r), var(--theme-g), var(--theme-b), 0.1);
+    --ring-speed: 20s;
+    --ring-mid-speed: 15s;
+    --ring-inner-speed: 10s;
+  }
+
+  body {
+    background: #0a0a0f;
+    color: var(--theme);
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  /* Background grid */
+  .bg-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--theme-015) 1px, transparent 1px),
+      linear-gradient(90deg, var(--theme-015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.2;
+    z-index: 0;
+  }
+
+  /* Radial vignette */
+  .vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+    z-index: 1;
+  }
+
+  .hud-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* === Mobile Status Overlay (hidden on desktop) === */
+  .mobile-status-overlay { display: none; }
+
+  /* === Central Arc Reactor (60% scale) === */
+  .arc-reactor {
+    position: absolute;
+    width: 192px;
+    height: 192px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .reactor-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--theme-03);
+    transition: border-color 0.6s ease;
+  }
+
+  .reactor-ring.outer {
+    width: 192px;
+    height: 192px;
+    border-color: var(--theme-015);
+    animation: spin-slow var(--ring-speed) linear infinite;
+  }
+
+  .reactor-ring.outer::before {
+    content: '';
+    position: absolute;
+    top: -2px; left: 50%;
+    width: 5px; height: 5px;
+    background: var(--theme);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 0 8px var(--theme), 0 0 16px var(--theme);
+  }
+
+  .reactor-ring.mid {
+    width: 156px;
+    height: 156px;
+    border-style: dashed;
+    border-color: var(--theme-02);
+    animation: spin-slow var(--ring-mid-speed) linear infinite reverse;
+  }
+
+  .reactor-ring.inner {
+    width: 120px;
+    height: 120px;
+    border-color: var(--theme-04);
+    animation: spin-slow var(--ring-inner-speed) linear infinite;
+    transition: border-color 0.6s ease, box-shadow 0.6s ease;
+  }
+
+  .reactor-ring.inner::after {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    border: 1px solid var(--theme-015);
+  }
+
+  .reactor-core {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--theme-04) 0%, var(--theme-01) 50%, transparent 70%);
+    box-shadow: 0 0 40px var(--theme-03), 0 0 80px var(--theme-01);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.6s ease, box-shadow 0.6s ease;
+  }
+
+  .reactor-core .icon {
+    font-size: 18px;
+    color: var(--theme);
+    text-shadow: 0 0 15px var(--theme);
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: color 0.6s ease;
+  }
+
+  /* === Waveform Ring (60% scale) === */
+  .waveform-ring {
+    position: absolute;
+    width: 216px;
+    height: 216px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .waveform-bar {
+    position: absolute;
+    width: 2px;
+    background: linear-gradient(to top, var(--theme-08), var(--theme-02));
+    border-radius: 2px;
+    transform-origin: center 108px;
+    box-shadow: 0 0 3px var(--theme-03);
+    transition: background 0.6s ease;
+  }
+
+  /* === Status Indicators === */
+  .status-panel {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+
+  .status-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--theme-05);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    transition: color 0.6s ease;
+  }
+
+  .status-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--theme);
+    text-shadow: 0 0 20px var(--theme-03);
+    transition: color 0.6s ease, text-shadow 0.6s ease;
+  }
+
+  /* === Side Panels === */
+  .side-panel {
+    position: absolute;
+    width: 260px;
+    padding: 16px 20px;
+    border: 1px solid var(--theme-015);
+    background: rgba(0, 10, 20, 0.6);
+    backdrop-filter: blur(10px);
+    transition: border-color 0.6s ease;
+  }
+
+  .side-panel.left {
+    left: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-left: 2px solid var(--theme-04);
+    clip-path: polygon(0 0, 100% 4%, 100% 96%, 0 100%);
+  }
+
+  .side-panel.right {
+    right: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-right: 2px solid var(--theme-04);
+    clip-path: polygon(0 4%, 100% 0, 100% 100%, 0 96%);
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--theme-05);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--theme-01);
+    transition: color 0.6s ease;
+  }
+
+  .panel-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+
+  .panel-row .label {
+    color: var(--theme-04);
+    font-size: 11px;
+    letter-spacing: 1px;
+    transition: color 0.6s ease;
+  }
+
+  .panel-row .value {
+    color: var(--theme);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    transition: color 0.6s ease;
+  }
+
+  .panel-row .value.active {
+    color: #00ff88;
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+  }
+
+  .panel-row .value.warning {
+    color: #ff3b3b;
+    text-shadow: 0 0 8px rgba(255, 59, 59, 0.3);
+  }
+
+  /* === Browser Feed === */
+  .browser-feed {
+    position: absolute;
+    top: 120px;
+    left: 30px;
+    width: 340px;
+    height: 230px;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    background: rgba(0, 5, 15, 0.85);
+    overflow: hidden;
+    display: none;  /* 기본 숨김 — browser_frame 수신 시 표시 */
+    z-index: 5;
+    /* Smooth transition for zoom */
+    transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+    transform-origin: top left;
+  }
+
+  .browser-feed.active {
+    display: block;
+    animation: feed-appear 0.5s ease-out;
+  }
+
+  /* === EXPANDED (Iron Man Hologram Zoom) === */
+  .browser-feed.expanded {
+    position: fixed;
+    top: 50% !important;
+    left: 50% !important;
+    width: 900px;
+    height: 560px;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    z-index: 100;
+    border: 2px solid rgba(0, 212, 255, 0.6);
+    box-shadow:
+      0 0 30px rgba(0, 212, 255, 0.3),
+      0 0 60px rgba(0, 212, 255, 0.15),
+      0 0 120px rgba(0, 212, 255, 0.05),
+      inset 0 0 30px rgba(0, 212, 255, 0.05);
+    background: rgba(0, 5, 15, 0.95);
+    animation: hologram-expand 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
+  .browser-feed.collapsing {
+    animation: hologram-collapse 0.6s cubic-bezier(0.55, 0, 0.1, 1) forwards;
+  }
+
+  @keyframes hologram-expand {
+    0% {
+      opacity: 0.6;
+      clip-path: inset(20% 20% 20% 20%);
+      filter: brightness(2) saturate(0.5);
+    }
+    30% {
+      clip-path: inset(5% 5% 5% 5%);
+      filter: brightness(1.5) saturate(0.8);
+    }
+    100% {
+      opacity: 1;
+      clip-path: inset(0% 0% 0% 0%);
+      filter: brightness(1) saturate(1);
+    }
+  }
+
+  @keyframes hologram-collapse {
+    0% {
+      opacity: 1;
+      clip-path: inset(0% 0% 0% 0%);
+      filter: brightness(1) saturate(1);
+    }
+    60% {
+      filter: brightness(1.5) saturate(0.5);
+    }
+    100% {
+      opacity: 0;
+      clip-path: inset(30% 30% 30% 30%);
+      filter: brightness(2) saturate(0);
+      transform: translate(-50%, -50%) scale(0.3);
+    }
+  }
+
+  /* HUD corner brackets for expanded state */
+  .feed-hud-corners {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.5s ease 0.3s;
+  }
+
+  .browser-feed.expanded .feed-hud-corners {
+    opacity: 1;
+  }
+
+  .feed-hud-corners::before,
+  .feed-hud-corners::after {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-color: rgba(0, 212, 255, 0.8);
+    border-style: solid;
+  }
+
+  .feed-hud-corners::before {
+    top: 8px;
+    left: 8px;
+    border-width: 2px 0 0 2px;
+  }
+
+  .feed-hud-corners::after {
+    top: 8px;
+    right: 8px;
+    border-width: 2px 2px 0 0;
+  }
+
+  .feed-corner-bl,
+  .feed-corner-br {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-color: rgba(0, 212, 255, 0.8);
+    border-style: solid;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.5s ease 0.3s;
+  }
+
+  .browser-feed.expanded .feed-corner-bl,
+  .browser-feed.expanded .feed-corner-br {
+    opacity: 1;
+  }
+
+  .feed-corner-bl {
+    bottom: 8px;
+    left: 8px;
+    border-width: 0 0 2px 2px;
+  }
+
+  .feed-corner-br {
+    bottom: 8px;
+    right: 8px;
+    border-width: 0 2px 2px 0;
+  }
+
+  /* Expanded header glow */
+  .browser-feed.expanded .feed-header {
+    background: rgba(0, 212, 255, 0.12);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+  }
+
+  .browser-feed.expanded .feed-title {
+    font-size: 10px;
+    color: rgba(0, 212, 255, 0.9);
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+  }
+
+  /* Holographic scan burst on expand */
+  .feed-hologram-flash {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+      rgba(0, 212, 255, 0.3) 0%,
+      transparent 30%,
+      transparent 70%,
+      rgba(0, 212, 255, 0.2) 100%
+    );
+    opacity: 0;
+    pointer-events: none;
+    z-index: 8;
+  }
+
+  .browser-feed.expanded .feed-hologram-flash {
+    animation: holo-flash 0.8s ease-out forwards;
+  }
+
+  @keyframes holo-flash {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* Expanded scan line is faster and brighter */
+  .browser-feed.expanded .feed-scan {
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.5), transparent);
+    animation: scan-down 2s linear infinite;
+    height: 3px;
+  }
+
+  /* Background overlay when expanded */
+  .zoom-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  .zoom-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* === BROWSER BOOT SEQUENCE === */
+  .boot-overlay {
+    position: absolute;
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+    /* 브라우저 피드 위치 기준 */
+    top: 120px;
+    left: 30px;
+    width: 340px;
+    height: 230px;
+  }
+
+  .boot-overlay.active {
+    opacity: 1;
+  }
+
+  /* Holographic line burst — 피드 위치 기준 */
+  .boot-hline {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.9), transparent);
+    transform: scaleX(0);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+  }
+
+  .boot-hline.animate {
+    animation: boot-line-h 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes boot-line-h {
+    0% { transform: scaleX(0); opacity: 1; }
+    60% { transform: scaleX(1.2); opacity: 1; }
+    100% { transform: scaleX(1.4); opacity: 0; }
+  }
+
+  .boot-vline {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    background: linear-gradient(180deg, transparent, rgba(0, 212, 255, 0.8), transparent);
+    transform: scaleY(0);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+  }
+
+  .boot-vline.animate {
+    animation: boot-line-v 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes boot-line-v {
+    0% { transform: scaleY(0); opacity: 1; }
+    60% { transform: scaleY(1.2); opacity: 1; }
+    100% { transform: scaleY(1.3); opacity: 0; }
+  }
+
+  /* Boot text flash — 피드 중앙 */
+  .boot-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    color: rgba(0, 212, 255, 0);
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.8), 0 0 40px rgba(0, 212, 255, 0.4);
+    white-space: nowrap;
+    z-index: 5;
+  }
+
+  .boot-text.animate {
+    animation: boot-text-flash 0.7s ease-out forwards;
+  }
+
+  @keyframes boot-text-flash {
+    0% { color: rgba(0, 212, 255, 0); letter-spacing: 14px; }
+    15% { color: rgba(255, 255, 255, 1); letter-spacing: 8px; }
+    35% { color: rgba(0, 212, 255, 0.9); letter-spacing: 6px; }
+    100% { color: rgba(0, 212, 255, 0); letter-spacing: 5px; }
+  }
+
+  /* Boot scan ring — 피드 중앙에서 확장 */
+  .boot-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border: 2px solid rgba(0, 212, 255, 0.6);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+  }
+
+  .boot-ring.animate {
+    animation: boot-ring-expand 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes boot-ring-expand {
+    0% { width: 0; height: 0; opacity: 1; border-width: 2px; }
+    100% { width: 400px; height: 400px; opacity: 0; border-width: 1px; }
+  }
+
+  /* Browser feed hologram materialization (제자리) */
+  .browser-feed.materializing {
+    display: block;
+    animation: feed-materialize 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
+  @keyframes feed-materialize {
+    0% {
+      opacity: 0;
+      clip-path: inset(50% 0% 50% 0%);
+      filter: brightness(3) saturate(0);
+      border-color: rgba(0, 212, 255, 0.8);
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+    }
+    30% {
+      opacity: 1;
+      clip-path: inset(15% 0% 15% 0%);
+      filter: brightness(1.8) saturate(0.3);
+    }
+    60% {
+      clip-path: inset(0% 0% 0% 0%);
+      filter: brightness(1.2) saturate(0.7);
+      border-color: rgba(0, 212, 255, 0.5);
+    }
+    100% {
+      opacity: 1;
+      clip-path: inset(0% 0% 0% 0%);
+      filter: brightness(1) saturate(1);
+      border-color: rgba(0, 212, 255, 0.2);
+      box-shadow: none;
+    }
+  }
+
+  @keyframes feed-appear {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .feed-header {
+    height: 22px;
+    background: rgba(0, 212, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+    transition: all 0.5s ease;
+  }
+
+  .feed-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: rgba(0, 212, 255, 0.6);
+    transition: all 0.5s ease;
+  }
+
+  .feed-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 2px;
+    color: #00ff88;
+  }
+
+  .feed-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #00ff88;
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.6);
+    animation: pulse-feed-dot 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-feed-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .feed-content {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 22px);
+    overflow: hidden;
+  }
+
+  .feed-content img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Face Recognition Overlay */
+  .face-recognition-overlay {
+    position: absolute;
+    top: 26px;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .face-recognition-overlay.visible {
+    opacity: 1;
+  }
+
+  .face-recognition-overlay.fade-out {
+    opacity: 0;
+  }
+
+  .face-recognition-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    padding: 4px 14px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    backdrop-filter: blur(4px);
+  }
+
+  .face-recognition-label.known {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    box-shadow: 0 0 12px rgba(0, 255, 136, 0.15), inset 0 0 8px rgba(0, 255, 136, 0.05);
+  }
+
+  .face-recognition-label.unknown {
+    color: #ffcc00;
+    background: rgba(255, 204, 0, 0.1);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    box-shadow: 0 0 12px rgba(255, 204, 0, 0.15), inset 0 0 8px rgba(255, 204, 0, 0.05);
+  }
+
+  .face-confidence {
+    font-size: 7px;
+    letter-spacing: 2px;
+    margin-left: 8px;
+    opacity: 0.7;
+  }
+
+  /* 스캔라인 오버레이 */
+  .feed-scan {
+    position: absolute;
+    top: 22px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.25), transparent);
+    animation: scan-down 3s linear infinite;
+    z-index: 2;
+    pointer-events: none;
+    transition: all 0.5s ease;
+  }
+
+  @keyframes scan-down {
+    0% { top: 22px; }
+    100% { top: calc(100% - 2px); }
+  }
+
+  .feed-scanlines {
+    position: absolute;
+    top: 22px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 212, 255, 0.015) 3px, rgba(0, 212, 255, 0.015) 6px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* === Code Action Panel === */
+  .code-panel {
+    position: absolute;
+    top: 120px;
+    right: 30px;
+    width: 340px;
+    max-height: 280px;
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    background: rgba(0, 5, 15, 0.85);
+    overflow: hidden;
+    display: none;
+    z-index: 5;
+    font-family: 'Courier New', monospace;
+  }
+
+  .code-panel.active {
+    display: block;
+    animation: feed-appear 0.5s ease-out;
+  }
+
+  .code-panel-header {
+    height: 22px;
+    background: rgba(0, 212, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+  }
+
+  .code-panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: rgba(0, 212, 255, 0.6);
+  }
+
+  .code-panel-status {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 2px;
+    color: #00ff88;
+  }
+
+  .code-panel-content {
+    padding: 8px 10px;
+    max-height: 258px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 100%);
+  }
+
+  .code-action {
+    margin-bottom: 6px;
+    animation: msg-slide-in 0.3s ease-out;
+  }
+
+  .code-action-type {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: #00d4ff;
+    margin-bottom: 2px;
+  }
+
+  .code-action-type.editing { color: #ffbd2e; }
+  .code-action-type.writing { color: #00ff88; }
+  .code-action-type.executing { color: #ff6b6b; }
+  .code-action-type.searching { color: #c084fc; }
+  .code-action-type.reading { color: #00d4ff; }
+  .code-action-type.agent { color: #f97316; }
+
+  .code-action-file {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2px;
+  }
+
+  .code-action-detail {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .code-action-detail .line-add {
+    color: #00ff88;
+  }
+
+  .code-action-detail .line-del {
+    color: #ff6b6b;
+  }
+
+  .code-panel-scanlines {
+    position: absolute;
+    top: 22px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0, 212, 255, 0.01) 3px, rgba(0, 212, 255, 0.01) 6px);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* === Mic Button === */
+  .mic-button {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 212, 255, 0.5);
+    background: rgba(0, 212, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20;
+    font-family: 'Orbitron', sans-serif;
+    transition: border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.2), inset 0 0 12px rgba(0, 212, 255, 0.05);
+  }
+
+  .mic-button:hover {
+    border-color: rgba(0, 212, 255, 0.9);
+    background: rgba(0, 212, 255, 0.18);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4), inset 0 0 16px rgba(0, 212, 255, 0.1);
+  }
+
+  .mic-button.recording {
+    border-color: rgba(255, 60, 60, 0.9);
+    background: rgba(255, 60, 60, 0.15);
+    box-shadow: 0 0 20px rgba(255, 60, 60, 0.5), inset 0 0 16px rgba(255, 60, 60, 0.1);
+    animation: mic-pulse 1.2s ease-in-out infinite;
+  }
+
+  .mic-icon {
+    font-size: 26px;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 60, 60, 0.5), inset 0 0 16px rgba(255, 60, 60, 0.1); }
+    50% { box-shadow: 0 0 36px rgba(255, 60, 60, 0.8), inset 0 0 24px rgba(255, 60, 60, 0.2); }
+  }
+
+  /* === SYSTEM BOOT SEQUENCE === */
+  .boot-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: #000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .boot-screen.active { display: flex; }
+  .boot-screen.fadeout { animation: boot-fadeout 0.5s ease-in forwards; }
+  @keyframes boot-fadeout { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* 초기 검은 화면: 부팅 전까지 HUD 숨김 */
+  .hud-container.hidden { opacity: 0; }
+  .hud-container.reveal { animation: hud-reveal 1s ease-out forwards; }
+  @keyframes hud-reveal { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+  /* 부팅 전 대기 화면 (검은 배경 + 파형만 표시) */
+  .boot-standby {
+    position: fixed; inset: 0; z-index: 400;
+    background: #000; display: none;
+    align-items: center; justify-content: center; flex-direction: column;
+  }
+  .boot-standby.active { display: flex; }
+
+  /* Shared: Reactor — enhanced with inner spinning rings */
+  .boot-reactor {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.4) 0%, rgba(0,212,255,0.05) 50%, transparent 70%);
+    box-shadow: 0 0 0 rgba(0,212,255,0); margin-bottom: 40px; opacity: 0;
+    position: relative; z-index: 10;
+  }
+  .boot-reactor.glow { animation: reactor-boot-enhanced 1.2s ease-out forwards; }
+  @keyframes reactor-boot-enhanced {
+    0% { opacity: 0; box-shadow: 0 0 0 rgba(0,212,255,0); transform: scale(0.2); }
+    20% { opacity: 1; box-shadow: 0 0 100px rgba(255,255,255,0.9), 0 0 200px rgba(0,212,255,0.5); transform: scale(1.5); }
+    40% { box-shadow: 0 0 80px rgba(0,212,255,0.8), 0 0 160px rgba(0,212,255,0.4); transform: scale(0.9); }
+    100% { opacity: 1; box-shadow: 0 0 50px rgba(0,212,255,0.5), 0 0 100px rgba(0,212,255,0.15); transform: scale(1); }
+  }
+
+  /* Inner spinning energy rings */
+  .boot-reactor-ring-inner {
+    position: absolute; border-radius: 50%; border: 1.5px solid rgba(0,212,255,0.6);
+    top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0;
+  }
+  .boot-reactor-ring-inner.r1 { width: 50px; height: 50px; border-style: dashed; }
+  .boot-reactor-ring-inner.r2 { width: 70px; height: 70px; border-color: rgba(180,130,255,0.5); }
+  .boot-reactor-ring-inner.r1.spin { opacity: 1; animation: reactor-spin-cw 2s linear infinite; }
+  .boot-reactor-ring-inner.r2.spin { opacity: 1; animation: reactor-spin-ccw 3s linear infinite; }
+  @keyframes reactor-spin-cw { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+  @keyframes reactor-spin-ccw { from { transform: translate(-50%,-50%) rotate(360deg); } to { transform: translate(-50%,-50%) rotate(0deg); } }
+
+  /* Energy beams radiating outward */
+  .boot-energy-beams {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 400px; height: 400px; pointer-events: none; opacity: 0; z-index: 9;
+  }
+  .boot-energy-beams.fire { animation: beams-fire 0.8s ease-out forwards; }
+  @keyframes beams-fire { 0% { opacity: 1; transform: translate(-50%,-50%) scale(0.1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1); } }
+  .boot-beam {
+    position: absolute; top: 50%; left: 50%; width: 200px; height: 1px;
+    transform-origin: 0 50%;
+    background: linear-gradient(90deg, rgba(0,212,255,0.8), rgba(180,130,255,0.3), transparent);
+  }
+  .boot-beam:nth-child(1) { transform: rotate(0deg); }
+  .boot-beam:nth-child(2) { transform: rotate(45deg); }
+  .boot-beam:nth-child(3) { transform: rotate(90deg); }
+  .boot-beam:nth-child(4) { transform: rotate(135deg); }
+  .boot-beam:nth-child(5) { transform: rotate(180deg); }
+  .boot-beam:nth-child(6) { transform: rotate(225deg); }
+  .boot-beam:nth-child(7) { transform: rotate(270deg); }
+  .boot-beam:nth-child(8) { transform: rotate(315deg); }
+
+  /* Shared: Title */
+  .boot-title {
+    font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700;
+    letter-spacing: 8px; color: rgba(0,212,255,0); margin-bottom: 30px; z-index: 10;
+  }
+  .boot-title.visible { animation: boot-title-in 0.6s ease-out forwards; }
+  @keyframes boot-title-in {
+    0% { color: rgba(0,212,255,0); letter-spacing: 16px; }
+    50% { color: rgba(255,255,255,1); letter-spacing: 10px; }
+    100% { color: rgba(0,212,255,0.9); letter-spacing: 8px; }
+  }
+
+  /* Shared: Modules */
+  .boot-modules {
+    font-family: 'Courier New', monospace; font-size: 13px; line-height: 2;
+    text-align: left; width: 340px; z-index: 10;
+  }
+  .boot-module { opacity: 0; color: rgba(0,212,255,0.5); display: flex; justify-content: space-between; }
+  .boot-module.checking { opacity: 1; animation: module-check-in 0.2s ease-out; }
+  @keyframes module-check-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  .boot-module .module-name { color: rgba(0,212,255,0.6); }
+  .boot-module .module-status { color: rgba(0,212,255,0.4); font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px; }
+  .boot-module .module-status.online { color: #00ff88; text-shadow: 0 0 8px rgba(0,255,136,0.5); }
+
+  /* Shared: Final */
+  .boot-final {
+    font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: 700;
+    letter-spacing: 6px; color: rgba(0,255,136,0); margin-top: 30px; z-index: 10;
+  }
+  .boot-final.flash { animation: boot-final-flash 0.8s ease-out forwards; }
+  @keyframes boot-final-flash {
+    0% { color: rgba(0,255,136,0); letter-spacing: 12px; }
+    30% { color: rgba(255,255,255,1); letter-spacing: 8px; }
+    100% { color: rgba(0,255,136,0.9); letter-spacing: 6px; text-shadow: 0 0 20px rgba(0,255,136,0.5); }
+  }
+
+  /* ── VARIANT 1: Energy Rings (Enhanced) ── */
+  .boot-rings-container {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 1000px; height: 1000px; pointer-events: none; z-index: 2;
+  }
+  .boot-ring-expand {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    border-radius: 50%; width: 0; height: 0; opacity: 0;
+  }
+  /* Ring 1: Cyan, thick, solid */
+  .boot-ring-expand:nth-child(1) {
+    border: 2px solid rgba(0,212,255,0.8);
+    box-shadow: 0 0 15px rgba(0,212,255,0.4), inset 0 0 15px rgba(0,212,255,0.1);
+  }
+  .boot-ring-expand:nth-child(1).fire { animation: ring-fire-1 1.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+  @keyframes ring-fire-1 {
+    0% { width: 0; height: 0; opacity: 1; }
+    60% { opacity: 0.7; }
+    100% { width: 900px; height: 900px; opacity: 0; }
+  }
+  /* Ring 2: Purple, dashed */
+  .boot-ring-expand:nth-child(2) {
+    border: 1.5px dashed rgba(160,100,255,0.7);
+    box-shadow: 0 0 12px rgba(160,100,255,0.3);
+  }
+  .boot-ring-expand:nth-child(2).fire { animation: ring-fire-2 1.3s cubic-bezier(0.16,1,0.3,1) 0.12s forwards; }
+  @keyframes ring-fire-2 {
+    0% { width: 0; height: 0; opacity: 1; }
+    100% { width: 750px; height: 750px; opacity: 0; }
+  }
+  /* Ring 3: Magenta, thin */
+  .boot-ring-expand:nth-child(3) {
+    border: 1px solid rgba(255,80,200,0.6);
+    box-shadow: 0 0 10px rgba(255,80,200,0.3);
+  }
+  .boot-ring-expand:nth-child(3).fire { animation: ring-fire-3 1.2s cubic-bezier(0.16,1,0.3,1) 0.25s forwards; }
+  @keyframes ring-fire-3 {
+    0% { width: 0; height: 0; opacity: 1; }
+    100% { width: 600px; height: 600px; opacity: 0; }
+  }
+  /* Ring 4: White flash, fast */
+  .boot-ring-expand:nth-child(4) {
+    border: 1px solid rgba(255,255,255,0.8);
+    box-shadow: 0 0 20px rgba(255,255,255,0.4);
+  }
+  .boot-ring-expand:nth-child(4).fire { animation: ring-fire-4 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s forwards; }
+  @keyframes ring-fire-4 {
+    0% { width: 0; height: 0; opacity: 1; border-width: 3px; }
+    100% { width: 500px; height: 500px; opacity: 0; border-width: 0.5px; }
+  }
+
+  /* Hexagonal grid with radial gradient overlay */
+  .boot-grid-overlay {
+    position: absolute; inset: 0; opacity: 0; pointer-events: none; z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Cpath d='M28 66L0 50V16L28 0l28 16v34zM28 100L0 84V50l28-16 28 16v34z' fill='none' stroke='rgba(0,212,255,0.07)' stroke-width='0.5'/%3E%3C/svg%3E");
+    background-size: 56px 100px;
+  }
+  .boot-grid-overlay::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,212,255,0.08) 0%, rgba(120,60,200,0.06) 50%, transparent 70%);
+  }
+  .boot-grid-overlay.reveal {
+    animation: grid-reveal-enhanced 1.2s ease-out forwards;
+  }
+  @keyframes grid-reveal-enhanced {
+    0% { opacity: 0; clip-path: circle(0% at 50% 50%); }
+    60% { opacity: 0.9; clip-path: circle(60% at 50% 50%); }
+    100% { opacity: 0.5; clip-path: circle(80% at 50% 50%); }
+  }
+
+  /* Floating particles */
+  .boot-particle {
+    position: absolute; width: 3px; height: 3px; border-radius: 50%;
+    background: rgba(0,212,255,0.8); box-shadow: 0 0 6px rgba(0,212,255,0.6);
+    opacity: 0; pointer-events: none; z-index: 3;
+  }
+  .boot-particle.float { animation: particle-float 3s ease-in-out forwards; }
+  .boot-particle:nth-child(1) { top: 30%; left: 20%; animation-delay: 0.2s; }
+  .boot-particle:nth-child(2) { top: 25%; left: 75%; animation-delay: 0.5s; background: rgba(160,100,255,0.8); box-shadow: 0 0 6px rgba(160,100,255,0.6); }
+  .boot-particle:nth-child(3) { top: 70%; left: 15%; animation-delay: 0.8s; }
+  .boot-particle:nth-child(4) { top: 65%; left: 80%; animation-delay: 0.4s; background: rgba(255,80,200,0.6); box-shadow: 0 0 6px rgba(255,80,200,0.4); }
+  .boot-particle:nth-child(5) { top: 45%; left: 90%; animation-delay: 0.6s; }
+  @keyframes particle-float {
+    0% { opacity: 0; transform: translateY(20px) scale(0); }
+    30% { opacity: 1; transform: translateY(0) scale(1.5); }
+    70% { opacity: 0.6; transform: translateY(-15px) scale(1); }
+    100% { opacity: 0; transform: translateY(-30px) scale(0.5); }
+  }
+
+  /* Module status enhancements */
+  .boot-module .module-status.checking {
+    color: #ffbd2e; text-shadow: 0 0 6px rgba(255,189,46,0.4);
+  }
+  .boot-module .module-status.online {
+    color: #00ff88; text-shadow: 0 0 10px rgba(0,255,136,0.6);
+    animation: module-online-pulse 0.4s ease-out;
+  }
+  @keyframes module-online-pulse {
+    0% { text-shadow: 0 0 30px rgba(0,255,136,1), 0 0 60px rgba(0,255,136,0.5); transform: scale(1.3); }
+    100% { text-shadow: 0 0 10px rgba(0,255,136,0.6); transform: scale(1); }
+  }
+
+  /* Final screen flash */
+  .boot-screen-flash {
+    position: absolute; inset: 0; background: rgba(0,212,255,0.15);
+    opacity: 0; pointer-events: none; z-index: 20;
+  }
+  .boot-screen-flash.flash {
+    animation: screen-flash 0.6s ease-out forwards;
+  }
+  @keyframes screen-flash {
+    0% { opacity: 0; }
+    20% { opacity: 1; background: rgba(255,255,255,0.15); }
+    100% { opacity: 0; }
+  }
+
+  /* ── VARIANT 2: Circuit Lines ── */
+  .boot-circuits {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 100%; height: 100%; pointer-events: none; z-index: 2;
+  }
+  .boot-circuit-line {
+    position: absolute; background: rgba(0,212,255,0.6);
+    box-shadow: 0 0 8px rgba(0,212,255,0.4), 0 0 16px rgba(0,212,255,0.2);
+    transform-origin: left center;
+  }
+  /* 4 lines going to 4 corners */
+  .boot-circuit-line:nth-child(1) { top: 50%; left: 50%; height: 2px; width: 0; transform: rotate(-30deg); }
+  .boot-circuit-line:nth-child(2) { top: 50%; left: 50%; height: 2px; width: 0; transform: rotate(30deg); }
+  .boot-circuit-line:nth-child(3) { top: 50%; left: 50%; height: 2px; width: 0; transform: rotate(-150deg); }
+  .boot-circuit-line:nth-child(4) { top: 50%; left: 50%; height: 2px; width: 0; transform: rotate(150deg); }
+  .boot-circuit-line.extend { animation: circuit-extend 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+  .boot-circuit-line:nth-child(2).extend { animation-delay: 0.1s; }
+  .boot-circuit-line:nth-child(3).extend { animation-delay: 0.2s; }
+  .boot-circuit-line:nth-child(4).extend { animation-delay: 0.3s; }
+  @keyframes circuit-extend { 0% { width: 0; } 100% { width: 400px; } }
+
+  .boot-circuit-node {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(0,212,255,0.8); box-shadow: 0 0 12px rgba(0,212,255,0.6);
+    opacity: 0; transform: translate(-50%, -50%);
+  }
+  .boot-circuit-node.pulse {
+    opacity: 1; animation: node-pulse 0.5s ease-out forwards;
+  }
+  @keyframes node-pulse {
+    0% { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+    50% { transform: translate(-50%,-50%) scale(2); }
+    100% { transform: translate(-50%,-50%) scale(1); opacity: 1; box-shadow: 0 0 20px rgba(0,255,136,0.8); background: #00ff88; }
+  }
+
+  /* Electric flicker on circuit lines */
+  .boot-circuit-line.active {
+    animation: circuit-flicker 0.3s ease-in-out 3;
+  }
+  @keyframes circuit-flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── VARIANT 3: Hologram Scan ── */
+  .boot-scan-h {
+    position: absolute; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent 10%, rgba(0,212,255,0.6) 50%, transparent 90%);
+    box-shadow: 0 0 20px rgba(0,212,255,0.4), 0 0 40px rgba(0,212,255,0.2);
+    opacity: 0; pointer-events: none; z-index: 3;
+  }
+  .boot-scan-h.sweep-down { top: 50%; animation: scan-h-down 1s cubic-bezier(0.16,1,0.3,1) forwards; }
+  .boot-scan-h.sweep-up { top: 50%; animation: scan-h-up 1s cubic-bezier(0.16,1,0.3,1) forwards; }
+  @keyframes scan-h-down { 0% { top: 50%; opacity: 1; } 100% { top: 100%; opacity: 0; } }
+  @keyframes scan-h-up { 0% { top: 50%; opacity: 1; } 100% { top: 0%; opacity: 0; } }
+
+  .boot-hex-grid {
+    position: absolute; inset: 0; opacity: 0; pointer-events: none; z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0l30 15v22L30 52 0 37V15z' fill='none' stroke='rgba(0,212,255,0.08)' stroke-width='1'/%3E%3C/svg%3E");
+    background-size: 60px 52px;
+  }
+  .boot-hex-grid.reveal {
+    animation: hex-reveal 1.2s ease-out forwards;
+  }
+  @keyframes hex-reveal {
+    0% { opacity: 0; clip-path: inset(50% 0 50% 0); }
+    50% { opacity: 0.8; clip-path: inset(10% 0 10% 0); }
+    100% { opacity: 0.4; clip-path: inset(0 0 0 0); }
+  }
+
+  /* Data stream effect for variant 3 */
+  .boot-data-stream {
+    position: absolute; font-family: 'Courier New', monospace; font-size: 9px;
+    color: rgba(0,212,255,0.15); writing-mode: vertical-lr; letter-spacing: 3px;
+    opacity: 0; pointer-events: none; z-index: 1;
+  }
+  .boot-data-stream.flow { animation: data-flow 2s linear forwards; }
+  @keyframes data-flow { 0% { opacity: 0; } 20% { opacity: 0.4; } 80% { opacity: 0.2; } 100% { opacity: 0; } }
+
+  /* === Conversation Log === */
+  .conversation-log {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 720px;
+    max-height: 220px;
+    overflow: hidden;  /* not overflow-y: scroll — we control scroll programmatically */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 100%);
+  }
+
+  .conv-msg {
+    padding: 6px 8px 6px 0;
+    margin-bottom: 4px;
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    background: rgba(0, 10, 20, 0.5);
+    backdrop-filter: blur(5px);
+    animation: msg-slide-in 0.4s ease-out;
+    transition: opacity 0.6s ease;
+  }
+
+  .conv-msg.user {
+    /* border via waveform canvas */
+  }
+
+  .conv-msg.assistant {
+    /* border via waveform canvas */
+  }
+
+  /* Mini waveform bar (replaces border-left) */
+  .msg-waveform {
+    width: 24px;
+    min-width: 24px;
+    flex-shrink: 0;
+  }
+
+  .msg-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .conv-msg .msg-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .conv-msg.user .msg-label {
+    color: rgba(0, 212, 255, 0.5);
+  }
+
+  .conv-msg.assistant .msg-label {
+    color: rgba(0, 255, 136, 0.5);
+  }
+
+  .conv-msg .msg-text {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.85);
+    word-wrap: break-word;
+  }
+
+  .msg-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 13px;
+    background: #00ff88;
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes msg-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* === Corner Decorations === */
+  .corner {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+  }
+
+  .corner::before, .corner::after {
+    content: '';
+    position: absolute;
+    background: var(--theme-03);
+    transition: background 0.6s ease;
+  }
+
+  .corner.tl { top: 20px; left: 20px; }
+  .corner.tl::before { top: 0; left: 0; width: 30px; height: 1px; }
+  .corner.tl::after { top: 0; left: 0; width: 1px; height: 30px; }
+
+  .corner.tr { top: 20px; right: 20px; }
+  .corner.tr::before { top: 0; right: 0; width: 30px; height: 1px; }
+  .corner.tr::after { top: 0; right: 0; width: 1px; height: 30px; }
+
+  .corner.bl { bottom: 20px; left: 20px; }
+  .corner.bl::before { bottom: 0; left: 0; width: 30px; height: 1px; }
+  .corner.bl::after { bottom: 0; left: 0; width: 1px; height: 30px; }
+
+  .corner.br { bottom: 20px; right: 20px; }
+  .corner.br::before { bottom: 0; right: 0; width: 30px; height: 1px; }
+  .corner.br::after { bottom: 0; right: 0; width: 1px; height: 30px; }
+
+  /* === Scan Lines === */
+  .scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* === HUD Lines connecting center to panels === */
+  .hud-line {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(90deg, var(--theme-03), var(--theme-015));
+    top: 50%;
+    transition: background 0.6s ease;
+  }
+
+  .hud-line.left {
+    left: 300px;
+    width: 240px;
+    background: linear-gradient(90deg, var(--theme-015), var(--theme-03));
+  }
+
+  .hud-line.right {
+    right: 300px;
+    width: 240px;
+  }
+
+  /* === Floating data points === */
+  .data-point {
+    position: absolute;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    color: rgba(0, 212, 255, 0.25);
+    letter-spacing: 2px;
+    transition: color 0.6s ease;
+  }
+
+  /* === Bottom bar === */
+  .bottom-bar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 40px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(0, 212, 255, 0.25);
+    transition: color 0.6s ease;
+  }
+
+  .ws-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ws-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ff3b3b;
+    transition: background 0.3s ease;
+  }
+
+  .ws-dot.connected {
+    background: #00ff88;
+    box-shadow: 0 0 6px rgba(0, 255, 136, 0.5);
+  }
+
+  /* Time display */
+  .time-display {
+    position: absolute;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--theme-03);
+    letter-spacing: 5px;
+    transition: color 0.6s ease, opacity 0.6s ease;
+    white-space: nowrap;
+  }
+
+  /* === Animations === */
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes pulse-text {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50% { box-shadow: 0 0 20px 5px var(--theme-03); }
+  }
+
+  /* State: recording - pulsing status text */
+  .state-recording .status-text {
+    animation: pulse-text 1.5s ease-in-out infinite;
+  }
+
+  /* State: processing - spinner on core */
+  .state-processing .reactor-core::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--theme);
+    animation: spin-slow 1s linear infinite;
+  }
+
+  /* ── STL 3D Viewer Overlay ── */
+  #stlOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(0, 0, 0, 0.85);
+    justify-content: center;
+    align-items: center;
+  }
+  #stlOverlay.active {
+    display: flex;
+  }
+  #stlContainer {
+    position: relative;
+    width: 70vw;
+    height: 70vh;
+    border: 1px solid var(--theme-04);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 40px var(--theme-02), inset 0 0 20px var(--theme-01);
+  }
+  #stlContainer canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+  }
+  #stlLabel {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--theme-05);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  #stlClose {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--theme-05);
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--theme-03);
+    padding: 4px 10px;
+    border-radius: 4px;
+    transition: color 0.2s, border-color 0.2s;
+    z-index: 1;
+  }
+  #stlClose:hover {
+    color: var(--theme);
+    border-color: var(--theme);
+  }
+  /* === Chat Toggle Button === */
+  .chat-slide-toggle {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--theme-03);
+    background: rgba(10, 15, 25, 0.85);
+    backdrop-filter: blur(6px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 35;
+    transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+  }
+
+  .chat-slide-toggle:hover {
+    border-color: var(--theme-05);
+    background: rgba(10, 15, 25, 0.95);
+    box-shadow: 0 0 15px var(--theme-01);
+  }
+
+  .chat-slide-toggle.active {
+    border-color: var(--theme);
+    background: rgba(0, 212, 255, 0.12);
+    box-shadow: 0 0 20px var(--theme-02);
+  }
+
+  .chat-slide-toggle svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: var(--theme-05);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: stroke 0.3s;
+  }
+
+  .chat-slide-toggle:hover svg,
+  .chat-slide-toggle.active svg {
+    stroke: var(--theme);
+  }
+
+  .chat-slide-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff3b3b;
+    box-shadow: 0 0 6px rgba(255, 59, 59, 0.6);
+    display: none;
+    animation: badge-pulse 1.5s ease-in-out infinite;
+  }
+
+  .chat-slide-badge.visible {
+    display: block;
+  }
+
+  @keyframes badge-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  /* === Chat Slide Panel === */
+  .chat-slide-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 400px;
+    height: 100vh;
+    background: rgba(10, 15, 25, 0.95);
+    backdrop-filter: blur(12px);
+    border-left: 1px solid var(--theme-03);
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .chat-slide-panel.open {
+    transform: translateX(0);
+  }
+
+  /* ============================================================
+     MOBILE: Tactical Command Interface
+     Split layout — mini HUD header + always-visible chat feed
+     ============================================================ */
+  /* ===== Ghost Reactor pulse animation ===== */
+  @keyframes ghost-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.55; }
+  }
+
+  /* ===== Aurora border glow — dual-layer Siri-style ===== */
+  @property --glow-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+  @property --glow-angle2 {
+    syntax: '<angle>';
+    initial-value: 180deg;
+    inherits: false;
+  }
+  @keyframes auroraRotate {
+    from { --glow-angle: 0deg; }
+    to { --glow-angle: 360deg; }
+  }
+  @keyframes auroraRotateReverse {
+    from { --glow-angle2: 180deg; }
+    to { --glow-angle2: -180deg; }
+  }
+  @keyframes auroraPulse {
+    0%, 100% { opacity: 0.6; filter: blur(6px) brightness(1); }
+    50% { opacity: 1; filter: blur(8px) brightness(1.3); }
+  }
+  @keyframes auroraPulseSubtle {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+  }
+  @keyframes auroraBreathe {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.005); opacity: 1; }
+  }
+
+  @media (max-width: 600px) {
+    /* --- Global: lock viewport, vertical flex --- */
+    html, body {
+      overflow: hidden !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: #060a12 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+    }
+
+    /* --- Hide desktop-only elements --- */
+    .corner, .side-panel, .code-panel, .data-point,
+    .browser-feed, .bg-grid, .vignette, .scanlines,
+    .hud-line, .time-display, .boot-screen,
+    .boot-overlay, .zoom-overlay, .stl-overlay,
+    .conversation-log, .bottom-bar, .mic-button,
+    .chat-slide-toggle, .chat-slide-badge,
+    .status-panel {
+      display: none !important;
+    }
+
+    /* --- HUD container: vertical flex layout --- */
+    .hud-container {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: #060a12 !important;
+    }
+
+    /* ---- Mobile Status Overlay ---- */
+    /* Status overlay: hidden on mobile, shown inside header instead */
+    .mobile-status-overlay {
+      display: none !important;
+    }
+
+    /* ---- Ghost Reactor: full 500px canvas, CSS-scaled to 240px display ---- */
+    #particleCanvas {
+      position: fixed !important;
+      top: 40% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 240px !important;
+      height: 240px !important;
+      z-index: 1 !important;
+      pointer-events: none !important;
+      opacity: 0.15;
+      transition: opacity 0.8s ease, filter 0.8s ease;
+      border-radius: 50% !important;
+      overflow: hidden !important;
+    }
+    /* State: recording — entire reactor turns red */
+    .hud-container.mobile-recording #particleCanvas {
+      opacity: 0.55;
+      filter: hue-rotate(320deg) brightness(1.5) saturate(1.8);
+    }
+    .hud-container.mobile-recording {
+      background: radial-gradient(circle at 50% 40%, rgba(255,40,40,0.06) 0%, #060a12 60%) !important;
+    }
+    /* State: thinking — bright cyan */
+    .hud-container.mobile-thinking #particleCanvas {
+      opacity: 0.55;
+    }
+    .hud-container.mobile-thinking {
+      background: radial-gradient(circle at 50% 40%, rgba(0,212,255,0.06) 0%, #060a12 60%) !important;
+    }
+    /* State: speaking — pulsing */
+    .hud-container.mobile-speaking #particleCanvas {
+      opacity: 0.4;
+      animation: ghost-pulse 2s ease-in-out infinite;
+    }
+
+    /* ---- Aurora border glow: dual-layer system ---- */
+    /* Layer 1 (::before): sharp inner edge — the "wire" */
+    .hud-container::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9998;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      border-radius: 0 0 55px 55px;
+      -webkit-mask:
+        linear-gradient(#000, #000) content-box,
+        linear-gradient(#000, #000);
+      mask:
+        linear-gradient(#000, #000) content-box,
+        linear-gradient(#000, #000);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      padding: 5px;
+    }
+    /* Layer 2 (::after): diffused outer glow — the "aura" */
+    .hud-container::after {
+      content: '';
+      position: fixed;
+      inset: -8px;
+      pointer-events: none;
+      z-index: 9997;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      filter: blur(12px);
+      border-radius: 0 0 63px 63px;
+      -webkit-mask:
+        linear-gradient(#000, #000) content-box,
+        linear-gradient(#000, #000);
+      mask:
+        linear-gradient(#000, #000) content-box,
+        linear-gradient(#000, #000);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      padding: 18px;
+    }
+
+    /* ======= RECORDING: red + orange + pink aurora ======= */
+    .hud-container.mobile-recording::before {
+      opacity: 1;
+      background:
+        conic-gradient(from var(--glow-angle, 0deg) at 50% 50%,
+          rgba(255, 30, 60, 0.9) 0deg,
+          rgba(255, 120, 40, 1) 45deg,
+          rgba(255, 60, 120, 0.9) 90deg,
+          rgba(255, 30, 60, 0.3) 135deg,
+          rgba(255, 180, 60, 0.9) 180deg,
+          rgba(255, 50, 80, 1) 225deg,
+          rgba(255, 100, 150, 0.9) 270deg,
+          rgba(255, 30, 60, 0.3) 315deg,
+          rgba(255, 30, 60, 0.9) 360deg
+        );
+      animation: auroraRotate 2.5s linear infinite;
+    }
+    .hud-container.mobile-recording::after {
+      opacity: 1;
+      background:
+        conic-gradient(from var(--glow-angle2, 180deg) at 50% 50%,
+          rgba(255, 60, 80, 0.6) 0deg,
+          rgba(255, 160, 60, 0.8) 60deg,
+          rgba(255, 80, 160, 0.6) 120deg,
+          rgba(255, 40, 40, 0.2) 180deg,
+          rgba(255, 140, 80, 0.8) 240deg,
+          rgba(255, 60, 120, 0.6) 300deg,
+          rgba(255, 60, 80, 0.6) 360deg
+        );
+      animation: auroraRotateReverse 3.5s linear infinite, auroraPulse 2s ease-in-out infinite;
+    }
+
+    /* ======= THINKING: cyan + violet + blue aurora ======= */
+    .hud-container.mobile-thinking::before {
+      opacity: 1;
+      background:
+        conic-gradient(from var(--glow-angle, 0deg) at 50% 50%,
+          rgba(0, 210, 255, 0.9) 0deg,
+          rgba(120, 80, 255, 1) 45deg,
+          rgba(0, 180, 255, 0.9) 90deg,
+          rgba(80, 40, 200, 0.3) 135deg,
+          rgba(0, 240, 255, 0.9) 180deg,
+          rgba(160, 100, 255, 1) 225deg,
+          rgba(40, 140, 255, 0.9) 270deg,
+          rgba(0, 210, 255, 0.3) 315deg,
+          rgba(0, 210, 255, 0.9) 360deg
+        );
+      animation: auroraRotate 3s linear infinite;
+    }
+    .hud-container.mobile-thinking::after {
+      opacity: 1;
+      background:
+        conic-gradient(from var(--glow-angle2, 180deg) at 50% 50%,
+          rgba(0, 200, 255, 0.5) 0deg,
+          rgba(140, 60, 255, 0.7) 72deg,
+          rgba(0, 160, 255, 0.5) 144deg,
+          rgba(100, 40, 220, 0.7) 216deg,
+          rgba(0, 220, 255, 0.5) 288deg,
+          rgba(0, 200, 255, 0.5) 360deg
+        );
+      animation: auroraRotateReverse 4s linear infinite, auroraPulseSubtle 3s ease-in-out infinite;
+    }
+
+    /* ======= SPEAKING: green + cyan + blue aurora ======= */
+    .hud-container.mobile-speaking::before {
+      opacity: 1;
+      background:
+        conic-gradient(from var(--glow-angle, 0deg) at 50% 50%,
+          rgba(0, 255, 140, 0.8) 0deg,
+          rgba(0, 200, 255, 0.9) 60deg,
+          rgba(40, 180, 255, 0.8) 120deg,
+          rgba(0, 255, 160, 0.3) 180deg,
+          rgba(0, 220, 200, 0.9) 240deg,
+          rgba(60, 255, 180, 0.8) 300deg,
+          rgba(0, 255, 140, 0.8) 360deg
+        );
+      animation: auroraRotate 4s linear infinite, auroraBreathe 3s ease-in-out infinite;
+    }
+    .hud-container.mobile-speaking::after {
+      opacity: 1;
+      background:
+        conic-gradient(from var(--glow-angle2, 180deg) at 50% 50%,
+          rgba(0, 255, 160, 0.4) 0deg,
+          rgba(0, 180, 255, 0.6) 90deg,
+          rgba(0, 255, 200, 0.4) 180deg,
+          rgba(60, 200, 255, 0.6) 270deg,
+          rgba(0, 255, 160, 0.4) 360deg
+        );
+      animation: auroraRotateReverse 5s linear infinite, auroraPulseSubtle 2.5s ease-in-out infinite;
+    }
+
+    /* ---- Chat panel: always visible, fills viewport ---- */
+    .chat-slide-panel,
+    .chat-slide-panel.open {
+      position: relative !important;
+      top: auto !important; right: auto !important;
+      width: 100% !important;
+      height: auto !important;
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      transform: none !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important;
+      border-left: none !important;
+      z-index: 5;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* ---- Chat header: status bar with state indicator ---- */
+    .chat-slide-header {
+      height: auto !important;
+      min-height: 32px !important;
+      padding: 8px 12px 4px !important;
+      background: rgba(6,10,18,0.98) !important;
+      border-bottom: 1px solid rgba(0,212,255,0.06) !important;
+      flex-shrink: 0;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+    .chat-slide-title {
+      font-size: 8px !important;
+      letter-spacing: 3px !important;
+      color: rgba(0,212,255,0.3) !important;
+      flex-shrink: 0;
+    }
+    /* Status text lives in the header */
+    #mobileStatusText {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(0,212,255,0.45);
+      transition: color 0.4s ease;
+    }
+    .hud-container.mobile-recording #mobileStatusText {
+      color: rgba(255,80,80,0.8);
+    }
+    .hud-container.mobile-thinking #mobileStatusText {
+      color: rgba(180,130,255,0.7);
+    }
+    .hud-container.mobile-speaking #mobileStatusText {
+      color: rgba(0,230,118,0.6);
+    }
+    .chat-slide-model-select {
+      font-size: 9px !important;
+      padding: 1px 6px !important;
+      height: 20px;
+      border-radius: 3px;
+      margin-left: auto;
+    }
+    .chat-slide-close {
+      display: none !important;
+    }
+
+    /* ---- Chat messages: dense, above ghost reactor ---- */
+    .chat-slide-messages {
+      flex: 1 1 0% !important;
+      min-height: 0 !important;
+      padding: 6px 10px !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      position: relative;
+      z-index: 5;
+    }
+
+    /* ---- Message bubbles: compact & dense ---- */
+    .chat-slide-msg {
+      max-width: 88% !important;
+      margin-bottom: 4px !important;
+    }
+    .chat-slide-msg-text {
+      font-size: 12px !important;
+      line-height: 1.4 !important;
+      padding: 5px 9px !important;
+    }
+    .chat-slide-msg-text pre,
+    .chat-slide-msg-text code {
+      font-size: 10px !important;
+    }
+    .chat-slide-msg-label {
+      font-size: 7px !important;
+      margin-bottom: 2px !important;
+      letter-spacing: 1.5px;
+    }
+    .chat-slide-msg-time {
+      font-size: 7px !important;
+    }
+    /* User bubble shape */
+    .chat-slide-msg.chat-slide-user {
+      border-radius: 8px 8px 2px 8px !important;
+    }
+    .chat-slide-user .chat-slide-msg-text {
+      background: rgba(0,212,255,0.12) !important;
+      border-color: rgba(0,212,255,0.2) !important;
+    }
+    /* AI bubble shape */
+    .chat-slide-msg.chat-slide-assistant {
+      border-radius: 8px 8px 8px 2px !important;
+    }
+
+    /* ---- Input bar: compact like mockup ---- */
+    .chat-slide-input-bar {
+      padding: 4px 14px 22px !important;
+      background: #060a12 !important;
+      border-top: 1px solid rgba(0,212,255,0.06) !important;
+      gap: 4px !important;
+      flex-shrink: 0;
+    }
+    .chat-slide-input {
+      font-size: 16px !important;
+      min-height: 34px !important;
+      padding: 6px 12px !important;
+      border-radius: 17px !important;
+      background: rgba(0,212,255,0.03) !important;
+      border: 1px solid rgba(0,212,255,0.1) !important;
+    }
+    .chat-slide-input:focus {
+      border-color: rgba(0,212,255,0.3) !important;
+    }
+    .chat-slide-send-btn,
+    .chat-slide-mic-btn {
+      width: 32px !important;
+      height: 32px !important;
+      flex-shrink: 0 !important;
+      border-radius: 50% !important;
+    }
+    .chat-slide-send-btn svg,
+    .chat-slide-mic-btn svg {
+      width: 14px !important;
+      height: 14px !important;
+    }
+    #chatAttachBtn {
+      width: 32px !important;
+      height: 32px !important;
+      flex-shrink: 0 !important;
+    }
+    .chat-slide-attach-preview {
+      padding: 4px 8px !important;
+    }
+    .chat-slide-attach-preview img {
+      max-height: 50px !important;
+    }
+  }
+
+  /* Panel Header */
+  .chat-slide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 40px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--theme-03);
+    flex-shrink: 0;
+  }
+
+  .chat-slide-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--theme-05);
+    text-transform: uppercase;
+  }
+
+  .chat-slide-model-select {
+    background: rgba(0, 10, 20, 0.8);
+    color: var(--theme);
+    border: 1px solid var(--theme-03);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+  }
+  .chat-slide-model-select:hover {
+    border-color: var(--theme-05);
+  }
+  .chat-slide-model-select option {
+    background: #0a0a1a;
+    color: #e0e0e0;
+  }
+
+  .chat-slide-close {
+    background: none;
+    border: none;
+    color: var(--theme-04);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: color 0.2s, background 0.2s;
+    line-height: 1;
+  }
+
+  .chat-slide-close:hover {
+    color: var(--theme);
+    background: rgba(0, 212, 255, 0.1);
+  }
+
+  /* Messages Area */
+  .chat-slide-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--theme-02) transparent;
+  }
+
+  .chat-slide-messages::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .chat-slide-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .chat-slide-messages::-webkit-scrollbar-thumb {
+    background: var(--theme-02);
+    border-radius: 2px;
+  }
+
+  /* Message Bubbles */
+  .chat-slide-msg {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    animation: msg-slide-in 0.3s ease-out;
+  }
+
+  .chat-slide-msg.chat-slide-user {
+    align-self: flex-end;
+    background: rgba(0, 150, 200, 0.3);
+    border: 1px solid rgba(0, 180, 230, 0.35);
+    color: rgba(255, 255, 255, 0.92);
+    border-radius: 12px 12px 4px 12px;
+  }
+
+  .chat-slide-msg.chat-slide-assistant {
+    align-self: flex-start;
+    background: rgba(30, 40, 60, 0.5);
+    border: 1px solid rgba(60, 80, 120, 0.3);
+    color: rgba(255, 255, 255, 0.88);
+    border-radius: 12px 12px 12px 4px;
+  }
+
+  .chat-slide-msg.chat-slide-tool {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    max-width: 90%;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .chat-slide-tool-summary {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .chat-slide-tool-summary::before {
+    content: '\25B6';
+    font-size: 8px;
+    transition: transform 0.2s;
+  }
+
+  .chat-slide-msg.chat-slide-tool.expanded .chat-slide-tool-summary::before {
+    transform: rotate(90deg);
+  }
+
+  .chat-slide-tool-detail {
+    display: none;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    white-space: pre-wrap;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .chat-slide-msg.chat-slide-tool.expanded .chat-slide-tool-detail {
+    display: block;
+  }
+
+  .chat-slide-msg.chat-slide-error {
+    align-self: flex-start;
+    background: rgba(255, 59, 59, 0.08);
+    border: 1px solid rgba(255, 59, 59, 0.25);
+    color: rgba(255, 100, 100, 0.9);
+    font-size: 13px;
+    border-radius: 8px;
+  }
+
+  .chat-slide-msg-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    color: rgba(0, 212, 255, 0.5);
+  }
+
+  .chat-slide-msg.chat-slide-assistant .chat-slide-msg-label {
+    color: rgba(0, 255, 136, 0.6);
+  }
+
+  .chat-slide-msg-text {
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  /* Markdown styles inside assistant messages */
+  .chat-slide-msg-text strong { color: rgba(255, 255, 255, 0.95); }
+  .chat-slide-msg-text em { font-style: italic; color: rgba(255, 255, 255, 0.8); }
+  .chat-slide-msg-text code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: rgba(0, 212, 255, 0.8);
+  }
+  .chat-slide-msg-text pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-size: 12px;
+  }
+  .chat-slide-msg-text pre code {
+    background: none;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.75);
+  }
+  .chat-slide-msg-text ul {
+    margin: 4px 0;
+    padding-left: 18px;
+  }
+  .chat-slide-msg-text li {
+    margin: 2px 0;
+  }
+  .chat-slide-msg-text a {
+    color: var(--theme);
+    text-decoration: underline;
+    text-decoration-color: var(--theme-03);
+  }
+
+  .chat-slide-msg-time {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.2);
+    margin-top: 3px;
+    text-align: right;
+  }
+
+  .chat-slide-msg.chat-slide-assistant .chat-slide-msg-time {
+    text-align: left;
+  }
+
+  .chat-slide-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 13px;
+    background: #00ff88;
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+  }
+
+  /* Input Bar */
+  .chat-slide-input-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--theme-02);
+    background: rgba(0, 5, 15, 0.7);
+    flex-shrink: 0;
+  }
+
+  .chat-slide-input {
+    flex: 1;
+    background: rgba(0, 10, 20, 0.8);
+    border: 1px solid var(--theme-02);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    outline: none;
+    resize: none;
+    min-height: 36px;
+    max-height: 100px;
+    line-height: 1.4;
+    transition: border-color 0.2s;
+  }
+
+  .chat-slide-input:focus {
+    border-color: var(--theme-04);
+  }
+
+  .chat-slide-input::placeholder {
+    color: var(--theme-03);
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  .chat-slide-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .chat-slide-send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 1px solid var(--theme-03);
+    background: rgba(0, 212, 255, 0.08);
+    color: var(--theme-05);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .chat-slide-send-btn:hover {
+    background: rgba(0, 212, 255, 0.18);
+    border-color: var(--theme-05);
+    color: var(--theme);
+  }
+
+  .chat-slide-mic-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 1px solid var(--theme-03);
+    background: rgba(0, 212, 255, 0.08);
+    color: var(--theme-05);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .chat-slide-mic-btn:hover {
+    background: rgba(0, 212, 255, 0.18);
+    border-color: var(--theme-05);
+  }
+
+  .chat-slide-mic-btn.recording {
+    border-color: rgba(255, 60, 60, 0.7);
+    background: rgba(255, 60, 60, 0.15);
+    animation: mic-pulse 1.2s ease-in-out infinite;
+  }
+
+  .chat-slide-mic-btn svg,
+  .chat-slide-send-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r160/three.min.js"></script>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="vignette"></div>
+  <div class="scanlines"></div>
+
+  <!-- STL 3D Viewer Overlay -->
+  <div id="stlOverlay">
+    <div id="stlContainer">
+      <div id="stlLabel">HOLOGRAM RENDER</div>
+      <button id="stlClose">&times; CLOSE</button>
+    </div>
+  </div>
+
+  <!-- System Boot Screen (hud-container 밖 — hidden 영향 안 받음) -->
+  <div class="boot-screen" id="bootScreen">
+    <div class="boot-rings-container" id="bootRings">
+      <div class="boot-ring-expand"></div>
+      <div class="boot-ring-expand"></div>
+      <div class="boot-ring-expand"></div>
+      <div class="boot-ring-expand"></div>
+    </div>
+    <div class="boot-grid-overlay" id="bootGrid"></div>
+    <div class="boot-circuits" id="bootCircuits">
+      <div class="boot-circuit-line"></div>
+      <div class="boot-circuit-line"></div>
+      <div class="boot-circuit-line"></div>
+      <div class="boot-circuit-line"></div>
+      <div class="boot-circuit-node" style="top:35%;left:30%"></div>
+      <div class="boot-circuit-node" style="top:35%;right:30%;left:auto"></div>
+      <div class="boot-circuit-node" style="top:65%;left:30%"></div>
+      <div class="boot-circuit-node" style="top:65%;right:30%;left:auto"></div>
+    </div>
+    <div class="boot-scan-h" id="bootScanDown"></div>
+    <div class="boot-scan-h" id="bootScanUp"></div>
+    <div class="boot-hex-grid" id="bootHex"></div>
+    <div class="boot-data-stream" style="left:15%;top:10%">01001010100101</div>
+    <div class="boot-data-stream" style="left:75%;top:5%">11010011101001</div>
+    <div class="boot-data-stream" style="left:85%;top:20%">00110101011010</div>
+    <div class="boot-data-stream" style="left:5%;top:15%">10101100110011</div>
+    <div class="boot-screen-flash" id="bootFlash"></div>
+    <div class="boot-particle" id="bp0"></div>
+    <div class="boot-particle" id="bp1"></div>
+    <div class="boot-particle" id="bp2"></div>
+    <div class="boot-particle" id="bp3"></div>
+    <div class="boot-particle" id="bp4"></div>
+    <div class="boot-energy-beams" id="bootBeams">
+      <div class="boot-beam"></div><div class="boot-beam"></div>
+      <div class="boot-beam"></div><div class="boot-beam"></div>
+      <div class="boot-beam"></div><div class="boot-beam"></div>
+      <div class="boot-beam"></div><div class="boot-beam"></div>
+    </div>
+    <div class="boot-reactor" id="bootReactor">
+      <div class="boot-reactor-ring-inner r1" id="bootRR1"></div>
+      <div class="boot-reactor-ring-inner r2" id="bootRR2"></div>
+    </div>
+    <div class="boot-title" id="bootTitle">JARVIS SYSTEM INITIALIZING</div>
+    <div class="boot-modules" id="bootModules">
+      <div class="boot-module" id="bm0"><span class="module-name">VOICE MODULE</span><span class="module-status" id="bs0">STANDBY</span></div>
+      <div class="boot-module" id="bm1"><span class="module-name">CAMERA FEED</span><span class="module-status" id="bs1">STANDBY</span></div>
+      <div class="boot-module" id="bm2"><span class="module-name">FACE RECOGNITION</span><span class="module-status" id="bs2">STANDBY</span></div>
+      <div class="boot-module" id="bm3"><span class="module-name">TTS ENGINE</span><span class="module-status" id="bs3">STANDBY</span></div>
+    </div>
+    <div class="boot-final" id="bootFinal">ALL SYSTEMS OPERATIONAL</div>
+  </div>
+
+  <div class="hud-container" id="hudContainer">
+    <!-- Corners -->
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <!-- Time -->
+    <div class="time-display" id="timeDisplay">AWAITING COMMAND</div>
+
+    <!-- Status -->
+    <div class="status-panel">
+      <div class="status-label">WhisperFlow Status</div>
+      <div class="status-text" id="statusText">STANDBY</div>
+    </div>
+
+    <!-- HUD Lines -->
+    <div class="hud-line left"></div>
+    <div class="hud-line right"></div>
+
+    <!-- Left Panel - System -->
+    <div class="side-panel left">
+      <div class="panel-title">System</div>
+      <div class="panel-row">
+        <span class="label">MODEL</span>
+        <span class="value" id="valModel">LARGE-V3</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">LANGUAGE</span>
+        <span class="value active" id="valLang">KOREAN</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">SAMPLE RATE</span>
+        <span class="value">16,000 Hz</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">OUTPUT</span>
+        <span class="value">TYPE</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">TTS ENGINE</span>
+        <span class="value active">QWEN</span>
+      </div>
+    </div>
+
+    <!-- Right Panel - Session -->
+    <div class="side-panel right">
+      <div class="panel-title">Session</div>
+      <div class="panel-row">
+        <span class="label">DURATION</span>
+        <span class="value" id="valDuration">00:00.0</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">AUDIO LEVEL</span>
+        <span class="value active" id="valAudioLevel">0.00</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">MODE</span>
+        <span class="value" id="valMode">YOUTUBE</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">HISTORY</span>
+        <span class="value" id="valHistory">0 ITEMS</span>
+      </div>
+      <div class="panel-row">
+        <span class="label">TTS SPEED</span>
+        <span class="value">1.4x</span>
+      </div>
+    </div>
+
+    <!-- Particle Constellation (replaces Arc Reactor) -->
+    <canvas id="particleCanvas" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:500px;height:500px;z-index:2;pointer-events:none;"></canvas>
+
+    <!-- Code Action Panel -->
+    <div class="code-panel" id="codePanel">
+      <div class="code-panel-header">
+        <span class="code-panel-title">CODE ACTIONS</span>
+        <span class="code-panel-status" id="codePanelStatus">IDLE</span>
+      </div>
+      <div class="code-panel-content" id="codePanelContent">
+      </div>
+      <div class="code-panel-scanlines"></div>
+    </div>
+
+    <!-- Boot Sequence Overlay -->
+    <div class="boot-overlay" id="bootOverlay">
+      <div class="boot-ring" id="bootRing"></div>
+      <div class="boot-hline" id="bootHline"></div>
+      <div class="boot-vline" id="bootVline"></div>
+      <div class="boot-text" id="bootText">BROWSER FEED ONLINE</div>
+    </div>
+
+    <!-- Zoom Overlay (dark backdrop when expanded) -->
+    <div class="zoom-overlay" id="zoomOverlay"></div>
+
+    <!-- Browser Feed -->
+    <div class="browser-feed" id="browserFeed">
+      <div class="feed-hud-corners"></div>
+      <div class="feed-corner-bl"></div>
+      <div class="feed-corner-br"></div>
+      <div class="feed-hologram-flash"></div>
+      <div class="feed-header">
+        <span class="feed-title">BROWSER FEED</span>
+        <span class="feed-status"><span class="feed-dot"></span>LIVE</span>
+      </div>
+      <div class="face-recognition-overlay" id="faceRecognitionOverlay">
+        <span class="face-recognition-label" id="faceRecognitionLabel"></span>
+      </div>
+      <div class="feed-content">
+        <img id="feedImage" src="" alt="">
+      </div>
+      <div class="feed-scan"></div>
+      <div class="feed-scanlines"></div>
+    </div>
+
+    <!-- Mic Button -->
+    <div class="mic-button" id="micButton">
+      <span class="mic-icon">🎙</span>
+    </div>
+
+    <!-- Conversation Log -->
+    <div class="conversation-log" id="conversationLog">
+      <!-- Messages will be appended here dynamically -->
+    </div>
+
+    <!-- Floating data -->
+    <div class="data-point" style="top: 180px; left: 120px;" id="dpSys">SYS.OK</div>
+    <div class="data-point" style="top: 220px; right: 100px;" id="dpLatency">LATENCY --ms</div>
+    <div class="data-point" style="bottom: 180px; left: 80px;" id="dpBuffer">BUFFER 0.0s</div>
+    <div class="data-point" style="bottom: 200px; right: 120px;" id="dpGpu">GPU --%</div>
+
+    <!-- Bottom bar -->
+    <div class="bottom-bar">
+      <span>WHISPERFLOW v1.0</span>
+      <span class="ws-status">
+        <span class="ws-dot" id="wsDot"></span>
+        <span id="wsLabel">DISCONNECTED</span>
+      </span>
+      <span id="fpsDisplay">FPS 60</span>
+    </div>
+
+    <!-- Chat Toggle Button -->
+    <button class="chat-slide-toggle" id="chatSlideToggle" title="Chat">
+      <svg viewBox="0 0 24 24">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+      <span class="chat-slide-badge" id="chatSlideBadge"></span>
+    </button>
+
+    <!-- Chat Slide Panel -->
+    <div class="chat-slide-panel" id="chatSlidePanel">
+      <div class="chat-slide-header">
+        <span class="chat-slide-title">JARVIS</span>
+        <span id="mobileStatusText" style="display:none;">STANDBY</span>
+        <select class="chat-slide-model-select" id="chatModelSelect" title="Model">
+          <option value="haiku">Haiku</option>
+          <option value="sonnet">Sonnet</option>
+          <option value="opus">Opus</option>
+        </select>
+        <button class="chat-slide-close" id="chatSlideClose" title="Close">&times;</button>
+      </div>
+      <div class="chat-slide-messages" id="chatSlideMessages">
+        <!-- Chat messages rendered dynamically -->
+      </div>
+      <div class="chat-slide-attach-preview" id="chatAttachPreview" style="display:none;">
+        <img id="chatAttachImg" style="max-height:80px;border-radius:4px;margin:4px 8px;">
+        <button id="chatAttachRemove" style="background:none;border:none;color:#f44;cursor:pointer;font-size:16px;" title="Remove">&times;</button>
+      </div>
+      <div class="chat-slide-input-bar">
+        <input type="file" id="chatFileInput" accept="image/*" style="display:none;">
+        <button class="chat-slide-mic-btn" id="chatAttachBtn" title="Attach Image" style="margin-right:4px;">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <textarea class="chat-slide-input" id="chatSlideInput" placeholder="Enter message..." rows="1"></textarea>
+        <button class="chat-slide-mic-btn" id="chatSlideMicBtn" title="Voice Input">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <button class="chat-slide-send-btn" id="chatSlideSendBtn" title="Send">
+          <svg viewBox="0 0 24 24">
+            <line x1="12" y1="19" x2="12" y2="5"/>
+            <polyline points="5 12 12 5 19 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    //  JARVIS SOUND ENGINE (Web Audio API)
+    // ============================================================
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // --- Reverb convolver ---
+    let reverbBuffer = null;
+    (function createReverb() {
+      const len = audioCtx.sampleRate * 1.2;
+      const buf = audioCtx.createBuffer(2, len, audioCtx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+        }
+      }
+      reverbBuffer = buf;
+    })();
+
+    function makeReverb(dryGain, wetGain) {
+      const dry = audioCtx.createGain();
+      const wet = audioCtx.createGain();
+      const conv = audioCtx.createConvolver();
+      conv.buffer = reverbBuffer;
+      dry.gain.value = dryGain;
+      wet.gain.value = wetGain;
+      const input = audioCtx.createGain();
+      input.connect(dry).connect(audioCtx.destination);
+      input.connect(conv).connect(wet).connect(audioCtx.destination);
+      return input;
+    }
+
+    // --- Noise buffer ---
+    function createNoiseBuffer(duration) {
+      const len = audioCtx.sampleRate * duration;
+      const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+
+    function playBootSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const out = makeReverb(0.7, 0.3);
+
+      // Layer 1: Sub bass power-up (40Hz → 120Hz)
+      const sub = audioCtx.createOscillator();
+      const subG = audioCtx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(40, now);
+      sub.frequency.exponentialRampToValueAtTime(120, now + 0.8);
+      subG.gain.setValueAtTime(0, now);
+      subG.gain.linearRampToValueAtTime(0.2, now + 0.15);
+      subG.gain.setValueAtTime(0.15, now + 0.5);
+      subG.gain.linearRampToValueAtTime(0, now + 1.2);
+      sub.connect(subG).connect(out);
+      sub.start(now); sub.stop(now + 1.2);
+
+      // Layer 2: Filtered noise whoosh
+      const noiseSrc = audioCtx.createBufferSource();
+      noiseSrc.buffer = createNoiseBuffer(1.0);
+      const nFilter = audioCtx.createBiquadFilter();
+      nFilter.type = 'bandpass';
+      nFilter.frequency.setValueAtTime(200, now);
+      nFilter.frequency.exponentialRampToValueAtTime(3000, now + 0.5);
+      nFilter.frequency.exponentialRampToValueAtTime(800, now + 1.0);
+      nFilter.Q.value = 3;
+      const nGain = audioCtx.createGain();
+      nGain.gain.setValueAtTime(0, now);
+      nGain.gain.linearRampToValueAtTime(0.08, now + 0.1);
+      nGain.gain.linearRampToValueAtTime(0.04, now + 0.5);
+      nGain.gain.linearRampToValueAtTime(0, now + 1.0);
+      noiseSrc.connect(nFilter).connect(nGain).connect(out);
+      noiseSrc.start(now); noiseSrc.stop(now + 1.0);
+
+      // Layer 3: Harmonic sweep (200Hz → 600Hz, square)
+      const sweep = audioCtx.createOscillator();
+      const sweepF = audioCtx.createBiquadFilter();
+      const sweepG = audioCtx.createGain();
+      sweep.type = 'square';
+      sweep.frequency.setValueAtTime(200, now);
+      sweep.frequency.exponentialRampToValueAtTime(600, now + 0.6);
+      sweepF.type = 'lowpass';
+      sweepF.frequency.setValueAtTime(400, now);
+      sweepF.frequency.exponentialRampToValueAtTime(2000, now + 0.4);
+      sweepF.frequency.exponentialRampToValueAtTime(600, now + 0.8);
+      sweepG.gain.setValueAtTime(0, now);
+      sweepG.gain.linearRampToValueAtTime(0.04, now + 0.1);
+      sweepG.gain.linearRampToValueAtTime(0, now + 0.8);
+      sweep.connect(sweepF).connect(sweepG).connect(out);
+      sweep.start(now); sweep.stop(now + 0.8);
+
+      // Layer 4: Digital confirmation ping (双音 E5+B5)
+      [659, 988].forEach((freq, i) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0, now + 0.45);
+        g.gain.linearRampToValueAtTime(0.1 - i * 0.03, now + 0.48);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+        o.connect(g).connect(out);
+        o.start(now + 0.45); o.stop(now + 1.1);
+      });
+
+      // Layer 5: High frequency shimmer
+      const shim = audioCtx.createOscillator();
+      const shimG = audioCtx.createGain();
+      shim.type = 'sine';
+      shim.frequency.setValueAtTime(2400, now + 0.5);
+      shim.frequency.exponentialRampToValueAtTime(3200, now + 0.8);
+      shimG.gain.setValueAtTime(0, now + 0.5);
+      shimG.gain.linearRampToValueAtTime(0.025, now + 0.55);
+      shimG.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+      shim.connect(shimG).connect(out);
+      shim.start(now + 0.5); shim.stop(now + 1.1);
+    }
+
+    function playZoomInSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const out = makeReverb(0.6, 0.4);
+
+      // Layer 1: Ascending filtered noise whoosh
+      const noiseSrc = audioCtx.createBufferSource();
+      noiseSrc.buffer = createNoiseBuffer(0.6);
+      const nF = audioCtx.createBiquadFilter();
+      nF.type = 'bandpass';
+      nF.frequency.setValueAtTime(300, now);
+      nF.frequency.exponentialRampToValueAtTime(4000, now + 0.3);
+      nF.frequency.exponentialRampToValueAtTime(2000, now + 0.5);
+      nF.Q.value = 5;
+      const nG = audioCtx.createGain();
+      nG.gain.setValueAtTime(0, now);
+      nG.gain.linearRampToValueAtTime(0.1, now + 0.05);
+      nG.gain.linearRampToValueAtTime(0.04, now + 0.3);
+      nG.gain.linearRampToValueAtTime(0, now + 0.55);
+      noiseSrc.connect(nF).connect(nG).connect(out);
+      noiseSrc.start(now); noiseSrc.stop(now + 0.55);
+
+      // Layer 2: Tonal sweep (300Hz → 1200Hz)
+      const sw = audioCtx.createOscillator();
+      const swF = audioCtx.createBiquadFilter();
+      const swG = audioCtx.createGain();
+      sw.type = 'sawtooth';
+      sw.frequency.setValueAtTime(300, now);
+      sw.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+      swF.type = 'lowpass';
+      swF.frequency.setValueAtTime(600, now);
+      swF.frequency.exponentialRampToValueAtTime(3000, now + 0.25);
+      swG.gain.setValueAtTime(0, now);
+      swG.gain.linearRampToValueAtTime(0.04, now + 0.03);
+      swG.gain.linearRampToValueAtTime(0, now + 0.4);
+      sw.connect(swF).connect(swG).connect(out);
+      sw.start(now); sw.stop(now + 0.4);
+
+      // Layer 3: Expand chord (C5 + E5 + G5)
+      [523, 659, 784].forEach((freq, i) => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        const t = now + 0.12 + i * 0.02;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.07 - i * 0.015, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+        o.connect(g).connect(out);
+        o.start(t); o.stop(t + 0.5);
+      });
+    }
+
+    function playZoomOutSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const out = makeReverb(0.7, 0.3);
+
+      // Layer 1: Descending noise whoosh
+      const noiseSrc = audioCtx.createBufferSource();
+      noiseSrc.buffer = createNoiseBuffer(0.5);
+      const nF = audioCtx.createBiquadFilter();
+      nF.type = 'bandpass';
+      nF.frequency.setValueAtTime(3000, now);
+      nF.frequency.exponentialRampToValueAtTime(200, now + 0.35);
+      nF.Q.value = 4;
+      const nG = audioCtx.createGain();
+      nG.gain.setValueAtTime(0, now);
+      nG.gain.linearRampToValueAtTime(0.08, now + 0.03);
+      nG.gain.linearRampToValueAtTime(0, now + 0.45);
+      noiseSrc.connect(nF).connect(nG).connect(out);
+      noiseSrc.start(now); noiseSrc.stop(now + 0.45);
+
+      // Layer 2: Descending tone (800Hz → 150Hz)
+      const sw = audioCtx.createOscillator();
+      const swF = audioCtx.createBiquadFilter();
+      const swG = audioCtx.createGain();
+      sw.type = 'sawtooth';
+      sw.frequency.setValueAtTime(800, now);
+      sw.frequency.exponentialRampToValueAtTime(150, now + 0.35);
+      swF.type = 'lowpass';
+      swF.frequency.setValueAtTime(2000, now);
+      swF.frequency.exponentialRampToValueAtTime(300, now + 0.3);
+      swG.gain.setValueAtTime(0, now);
+      swG.gain.linearRampToValueAtTime(0.035, now + 0.02);
+      swG.gain.linearRampToValueAtTime(0, now + 0.4);
+      sw.connect(swF).connect(swG).connect(out);
+      sw.start(now); sw.stop(now + 0.4);
+
+      // Layer 3: Low impact thud
+      const thud = audioCtx.createOscillator();
+      const thudG = audioCtx.createGain();
+      thud.type = 'sine';
+      thud.frequency.setValueAtTime(100, now);
+      thud.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+      thudG.gain.setValueAtTime(0.12, now);
+      thudG.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      thud.connect(thudG).connect(out);
+      thud.start(now); thud.stop(now + 0.35);
+
+      // Layer 4: Subtle dismiss tone (G4 내림)
+      const dm = audioCtx.createOscillator();
+      const dmG = audioCtx.createGain();
+      dm.type = 'sine';
+      dm.frequency.setValueAtTime(392, now + 0.05);
+      dm.frequency.exponentialRampToValueAtTime(330, now + 0.3);
+      dmG.gain.setValueAtTime(0, now + 0.05);
+      dmG.gain.linearRampToValueAtTime(0.06, now + 0.08);
+      dmG.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      dm.connect(dmG).connect(out);
+      dm.start(now + 0.05); dm.stop(now + 0.45);
+    }
+
+    // Resume AudioContext on any user interaction (browser policy)
+    function resumeAudio() {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    document.addEventListener('click', resumeAudio);
+    document.addEventListener('keydown', resumeAudio);
+    document.addEventListener('touchstart', resumeAudio);
+
+    // Also try to resume immediately and on visibility change
+    resumeAudio();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) resumeAudio();
+    });
+
+    // ============================================================
+    //  CONFIGURATION
+    // ============================================================
+    // Auto-detect protocol: wss for HTTPS (Tailscale proxy), ws for HTTP (local)
+    const WS_URL = window.location.protocol === 'https:'
+      ? 'wss://' + window.location.host
+      : 'ws://' + window.location.hostname + ':8767';
+    const RECONNECT_INTERVAL = 2000;
+    const BAR_COUNT = 72;
+
+    // ============================================================
+    //  DOM REFS
+    // ============================================================
+    const $ = id => document.getElementById(id);
+    const statusText = $('statusText');
+    const valAudioLevel = $('valAudioLevel');
+    const valDuration = $('valDuration');
+    const timeDisplay = $('timeDisplay');
+    const conversationLog = $('conversationLog');
+    const wsDot = $('wsDot');
+    const wsLabel = $('wsLabel');
+    const micButton = $('micButton');
+
+    // ============================================================
+    //  STATE
+    // ============================================================
+    let currentState = 'idle';
+    let currentAudioLevel = 0;
+    let targetAudioLevel = 0;
+    let targetAudioLow = 0;
+    let targetAudioMid = 0;
+    let targetAudioHigh = 0;
+    let currentAudioLow = 0;
+    let currentAudioMid = 0;
+    let currentAudioHigh = 0;
+    let ws = null;
+    let reconnectTimer = null;
+    let recordingStartTime = null;
+    let durationTimer = null;
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+    let ttsAudioQueue = [];  // queue of ArrayBuffer
+    let ttsAudioPlaying = false;
+    let _pendingListenAfterTts = false;
+    let _ttsAudioCtx = null;
+    let _ttsAudioEl = null;
+    let _ttsAudioUnlocked = false;
+
+    // iOS Safari: unlock AudioContext on first user gesture
+    function getTtsAudioCtx() {
+      if (!_ttsAudioCtx) {
+        _ttsAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (_ttsAudioCtx.state === 'suspended' || _ttsAudioCtx.state === 'interrupted') {
+        _ttsAudioCtx.resume();
+      }
+      return _ttsAudioCtx;
+    }
+
+    function getTtsAudioEl() {
+      if (!_ttsAudioEl) {
+        _ttsAudioEl = new Audio();
+        _ttsAudioEl.volume = 1.0;
+      }
+      return _ttsAudioEl;
+    }
+
+    // TTS 음량은 서버(qwen_tts_speak.py)가 재생 중 audio_level로 보내준다.
+    // → 'audio_level' 핸들러가 targetAudio* 를 채우고, 파티클 tts_playing case가 반응.
+
+    function unlockTtsAudio() {
+      // Unlock AudioContext only if not already running
+      const ctx = getTtsAudioCtx();
+      if (ctx.state !== 'running') {
+        const buf = ctx.createBuffer(1, 1, 22050);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start(0);
+      }
+
+      // Unlock HTML5 Audio element once — don't disturb active TTS
+      if (!_ttsAudioUnlocked) {
+        const el = getTtsAudioEl();
+        el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+        el.play().then(() => {
+          _ttsAudioUnlocked = true;
+          console.log('[TTS Audio] Element unlocked');
+        }).catch(() => {});
+      }
+    }
+    document.addEventListener('touchstart', unlockTtsAudio);
+    document.addEventListener('click', unlockTtsAudio);
+
+    function playNextTtsChunk() {
+      if (ttsAudioQueue.length === 0) {
+        ttsAudioPlaying = false;
+        // 주의: 여기서 targetAudio* 를 0으로 리셋하면 안 됨.
+        // 데스크톱은 브라우저 자체 재생이 막혀 큐가 즉시 비므로, 서버가 보내는
+        // audio_level 스트림을 매 청크마다 덮어써서 파티클이 안 튄다.
+        // 음성 종료(구름 복귀)는 서버의 state:idle 에서만 처리한다.
+        // TTS 재생 완료 → 대기 중이던 음성 입력 시작
+        if (_pendingListenAfterTts && isMobileView && !webSpeechActive) {
+          _pendingListenAfterTts = false;
+          if (!webSpeechRecognition) webSpeechRecognition = initWebSpeech();
+          if (webSpeechRecognition) {
+            try { webSpeechRecognition.start(); } catch(e) {}
+          }
+        }
+        return;
+      }
+      ttsAudioPlaying = true;
+      const arrayBuf = ttsAudioQueue.shift();
+      const blob = new Blob([arrayBuf], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      const el = getTtsAudioEl();
+
+      const cleanup = () => {
+        el.onended = null;
+        el.onerror = null;
+        URL.revokeObjectURL(url);
+      };
+
+      el.onended = () => {
+        cleanup();
+        playNextTtsChunk();
+      };
+      el.onerror = (e) => {
+        console.error('[TTS] playback error:', e);
+        cleanup();
+        playNextTtsChunk();
+      };
+      el.src = url;
+      el.play().catch((err) => {
+        console.error('[TTS] play() rejected:', err);
+        cleanup();
+        ttsAudioPlaying = false;
+        playNextTtsChunk();
+      });
+    }
+
+    // Waveform bar elements
+    const bars = [];
+
+    // ============================================================
+    //  THEME COLORS per state
+    // ============================================================
+    const THEMES = {
+      idle:         { r: 0,   g: 212, b: 255, label: 'STANDBY',       labelClass: '' },
+      recording:    { r: 255, g: 59,  b: 59,  label: '\u25CF RECORDING',   labelClass: 'state-recording' },
+      processing:   { r: 255, g: 170, b: 30,  label: 'PROCESSING...', labelClass: 'state-processing' },
+      thinking:     { r: 180, g: 130, b: 255, label: 'THINKING...',   labelClass: 'state-processing' },
+      tts_playing:  { r: 0,   g: 230, b: 118, label: 'SPEAKING',      labelClass: '' },
+    };
+
+    // ============================================================
+    //  PARTICLE CONSTELLATION SYSTEM
+    // ============================================================
+    const pCanvas = $('particleCanvas');
+    const pCtx = pCanvas.getContext('2d');
+    const PARTICLE_COUNT = 420;
+    const CONNECTION_DIST = 52;
+    const CONNECTION_DIST_SQ = CONNECTION_DIST * CONNECTION_DIST;
+    // Internal render resolution. Larger than the 500px CSS display so big
+    // audio bursts have room to expand without hitting the canvas edges.
+    // CSS display size stays 500px (set in resizeParticleCanvas) so visual
+    // scale is unchanged; only the coordinate space is roomier.
+    const PCANVAS_SIZE = 760;
+    const PCANVAS_CENTER = PCANVAS_SIZE / 2;            // 380
+    const PCANVAS_MAXR = PCANVAS_SIZE / 2 - 20;         // 360 soft circular boundary
+    const particles = [];
+
+    // HiDPI support + mobile sizing
+    function resizeParticleCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const isMobile = window.innerWidth <= 600;
+      const displaySize = 500;      // CSS display size (unchanged visually)
+      const size = PCANVAS_SIZE;    // internal coordinate space (roomier)
+      pCanvas.style.width = displaySize + 'px';
+      pCanvas.style.height = displaySize + 'px';
+      pCanvas.width = size * dpr;
+      pCanvas.height = size * dpr;
+      pCtx.setTransform(1, 0, 0, 1, 0, 0);
+      pCtx.scale(dpr, dpr);
+    }
+    resizeParticleCanvas();
+    window.addEventListener('resize', resizeParticleCanvas);
+
+    // Create particles as a soft cloud sphere.
+    // Density falloff: pow(random, 0.6) packs more particles near the
+    // center and lets them thin out toward the edges (구름 형태).
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      // base 150 with falloff exponent → dense core, sparse rim
+      const radius = 18 + Math.pow(Math.random(), 0.6) * 150;
+      // depth 0.3~1.0 → back layers small/dim, front layers big/sharp
+      const depth = 0.3 + Math.random() * 0.7;
+      // ~6% bright sparkle particles get an extra glow
+      const hot = Math.random() < 0.06;
+      particles.push({
+        x: PCANVAS_CENTER + Math.cos(angle) * radius,
+        y: PCANVAS_CENTER + Math.sin(angle) * radius,
+        baseAngle: angle,
+        baseRadius: radius,
+        depth,
+        hot,
+        vx: 0, vy: 0,
+        // size scaled by depth so depth reads visually
+        size: (0.5 + Math.random() * 1.4) * depth,
+        speed: 0.2 + Math.random() * 0.5,
+        phase: Math.random() * Math.PI * 2,
+        // independent drift seeds — each particle floats on its own
+        driftSeedX: Math.random() * 1000,
+        driftSeedY: Math.random() * 1000,
+        driftSpeedX: 0.10 + Math.random() * 0.22,
+        driftSpeedY: 0.10 + Math.random() * 0.22,
+        driftAmp: 6 + Math.random() * 10,
+        // per-particle burst response for audio (소리에 튀는 정도)
+        burst: 0,
+        burstGain: 0.6 + Math.random() * 0.9,
+      });
+    }
+
+    // ============================================================
+    //  APPLY THEME
+    // ============================================================
+    function applyTheme(state) {
+      const t = THEMES[state] || THEMES.idle;
+      const root = document.documentElement;
+      root.style.setProperty('--theme-r', t.r);
+      root.style.setProperty('--theme-g', t.g);
+
+      // HUD 상태 텍스트 업데이트
+      updateHudText(state);
+      root.style.setProperty('--theme-b', t.b);
+
+      // Status text
+      statusText.textContent = t.label;
+
+      // Particle system은 currentState를 직접 참조하므로 별도 설정 불필요
+
+      // Duration tracking
+      if (state === 'recording') {
+        recordingStartTime = Date.now();
+        durationTimer = setInterval(updateDuration, 100);
+      } else {
+        if (durationTimer) { clearInterval(durationTimer); durationTimer = null; }
+        if (state === 'idle') {
+          valDuration.textContent = '00:00.0';
+          valDuration.classList.remove('warning');
+        }
+      }
+
+      // Mic button state
+      if (micButton) {
+        if (state === 'recording') {
+          micButton.classList.add('recording');
+        } else {
+          micButton.classList.remove('recording');
+        }
+      }
+    }
+
+    function updateDuration() {
+      if (!recordingStartTime) return;
+      const elapsed = (Date.now() - recordingStartTime) / 1000;
+      const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+      const secs = Math.floor(elapsed % 60).toString().padStart(2, '0');
+      const tenths = Math.floor((elapsed * 10) % 10);
+      valDuration.textContent = `${mins}:${secs}.${tenths}`;
+      valDuration.classList.toggle('warning', elapsed > 2);
+    }
+
+    // ============================================================
+    //  PARTICLE ANIMATION (requestAnimationFrame)
+    // ============================================================
+    let animTime = 0;
+
+    // State-dependent colors
+    const PARTICLE_COLORS = {
+      idle:        { r: 0, g: 212, b: 255, line: 0.06 },
+      recording:   { r: 255, g: 80, b: 80, line: 0.12 },
+      processing:  { r: 255, g: 170, b: 30, line: 0.08 },
+      thinking:    { r: 180, g: 130, b: 255, line: 0.08 },
+      tts_playing: { r: 0, g: 230, b: 118, line: 0.1 },
+    };
+
+    function animateParticles(timestamp) {
+      animTime = timestamp * 0.001;
+      // Snappier audio tracking so per-syllable strong/weak dynamics survive
+      // (was 0.15/0.12/0.18/0.2 — too smoothed, made bursts feel uniform).
+      currentAudioLevel += (targetAudioLevel - currentAudioLevel) * 0.30;
+      currentAudioLow += (targetAudioLow - currentAudioLow) * 0.28;
+      currentAudioMid += (targetAudioMid - currentAudioMid) * 0.32;
+      currentAudioHigh += (targetAudioHigh - currentAudioHigh) * 0.35;
+
+      const cx = PCANVAS_CENTER, cy = PCANVAS_CENTER;
+      const col = PARTICLE_COLORS[currentState] || PARTICLE_COLORS.idle;
+
+      // Light trail: instead of a hard clear, fade the previous frame.
+      // 'destination-out' erases by alpha so we don't tint toward black,
+      // keeping the transparent particle canvas clean over the rest of the UI.
+      pCtx.globalCompositeOperation = 'destination-out';
+      pCtx.fillStyle = 'rgba(0,0,0,0.28)';
+      pCtx.fillRect(0, 0, PCANVAS_SIZE, PCANVAS_SIZE);
+      pCtx.globalCompositeOperation = 'source-over';
+
+      // Update particles based on state
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const p = particles[i];
+        const t = animTime;
+
+        const level = currentAudioLevel;
+
+        switch (currentState) {
+          case 'idle': {
+            // Living cloud: each particle floats independently around its
+            // anchor point. NO shared rotation — drift is per-particle so
+            // the whole never reads as spinning one direction.
+            const breathe = Math.sin(t * 0.55 + p.phase) * 0.06 + 1.0;
+            // anchor = fixed cloud position from baseAngle/baseRadius
+            const ax = cx + Math.cos(p.baseAngle) * p.baseRadius * breathe;
+            const ay = cy + Math.sin(p.baseAngle) * p.baseRadius * breathe;
+            // organic wander = sum of two slow sines per axis (pseudo-noise)
+            const dx = (Math.sin(t * p.driftSpeedX + p.driftSeedX)
+                      + Math.sin(t * p.driftSpeedX * 0.47 + p.driftSeedX * 1.7) * 0.5)
+                      * p.driftAmp;
+            const dy = (Math.cos(t * p.driftSpeedY + p.driftSeedY)
+                      + Math.cos(t * p.driftSpeedY * 0.53 + p.driftSeedY * 1.3) * 0.5)
+                      * p.driftAmp;
+            const tx = ax + dx;
+            const ty = ay + dy;
+            // loose inertia — slides gently into place
+            p.x += (tx - p.x) * 0.03;
+            p.y += (ty - p.y) * 0.03;
+            p.burst += (0 - p.burst) * 0.08;
+            break;
+          }
+          case 'recording': {
+            // 듣기: 평소엔 구름 드리프트, 소리가 들어오면 바깥으로 팍 튐.
+            // 주파수 밴드별로 점마다 다르게 반응해서 풍성하게.
+            const breathe = Math.sin(t * 0.55 + p.phase) * 0.06 + 1.0;
+            const ax = cx + Math.cos(p.baseAngle) * p.baseRadius * breathe;
+            const ay = cy + Math.sin(p.baseAngle) * p.baseRadius * breathe;
+            // mild idle wander stays under the burst
+            const wx = Math.sin(t * p.driftSpeedX + p.driftSeedX) * p.driftAmp * 0.5;
+            const wy = Math.cos(t * p.driftSpeedY + p.driftSeedY) * p.driftAmp * 0.5;
+            // band mix varies per particle (phase) → some react to bass, some highs
+            const bandMix = 0.5 + 0.5 * Math.sin(p.phase * 2.3);
+            // 항상 도는 은은한 베이스 펄스 — 오디오 신호가 없거나 약해도
+            // 파티클이 죽지 않고 살아있게(가파른 게이트로 다 죽던 문제 해결).
+            const basePulse = (Math.sin(t * 3.0 + p.phase) * 0.5 + 0.5) * 14;
+            // 오디오 성분 — 녹음 시 전체 레벨은 항상 옴(밴드는 있으면 보너스).
+            // 큰 소리일수록 크게 튐, 게이트 제거로 약한 소리도 자연스럽게 반응.
+            const audioDrive = currentAudioLevel * (120 + bandMix * 70)
+                             + currentAudioLow * 45 + currentAudioMid * 30
+                             + currentAudioHigh * bandMix * 45;
+            const targetBurst = Math.min(300, (basePulse + audioDrive) * p.burstGain);
+            p.burst += (targetBurst - p.burst) * 0.28;
+            const r = p.baseRadius * breathe + p.burst;
+            const tx = cx + Math.cos(p.baseAngle) * r + wx;
+            const ty = cy + Math.sin(p.baseAngle) * r + wy;
+            p.x += (tx - p.x) * 0.12;
+            p.y += (ty - p.y) * 0.12;
+            // 고음 기반 미세 떨림
+            const highJitter = (currentAudioHigh + currentAudioLevel * 0.7) * 2.2;
+            p.x += (Math.random() - 0.5) * highJitter;
+            p.y += (Math.random() - 0.5) * highJitter;
+            break;
+          }
+          case 'processing':
+          case 'thinking': {
+            // Spiral orbit — contemplative, flowing
+            const spiral = Math.sin(t * 1.5 + p.phase) * 0.3 + 1.0;
+            const a = p.baseAngle + t * p.speed * 0.7 + Math.sin(t * 0.5) * 0.3;
+            const r = p.baseRadius * spiral + Math.sin(t * 2.5 + p.phase) * 15;
+            p.x += (cx + Math.cos(a) * r - p.x) * 0.035;
+            p.y += (cy + Math.sin(a) * r - p.y) * 0.035;
+            break;
+          }
+          case 'tts_playing': {
+            // 말하기: 음성 출력에 맞춰 바깥으로 튐. 소리가 잦아들면 구름으로 복귀.
+            const breathe = Math.sin(t * 0.6 + p.phase) * 0.07 + 1.0;
+            const ax = cx + Math.cos(p.baseAngle) * p.baseRadius * breathe;
+            const ay = cy + Math.sin(p.baseAngle) * p.baseRadius * breathe;
+            const wx = Math.sin(t * p.driftSpeedX + p.driftSeedX) * p.driftAmp * 0.5;
+            const wy = Math.cos(t * p.driftSpeedY + p.driftSeedY) * p.driftAmp * 0.5;
+            const bandMix = 0.5 + 0.5 * Math.sin(p.phase * 1.9);
+            // 항상 도는 은은한 펄스(원본 heartbeat 대체) — 분석기가 값을 못 줘도
+            // 말하는 동안 시각적으로 살아있게.
+            const basePulse = (Math.pow(Math.sin(t * 3.2 + p.phase * 0.5), 2)) * 20;
+            // 실제 재생 음성에서 뽑은 레벨/밴드로 추가 튐 → 목소리에 맞춰 출렁.
+            const audioDrive = currentAudioLevel * (130 + bandMix * 70)
+                             + currentAudioLow * 50 + currentAudioMid * 34
+                             + currentAudioHigh * bandMix * 40;
+            const targetBurst = Math.min(300, (basePulse + audioDrive) * p.burstGain);
+            p.burst += (targetBurst - p.burst) * 0.26;
+            const r = p.baseRadius * breathe + p.burst;
+            const tx = cx + Math.cos(p.baseAngle) * r + wx;
+            const ty = cy + Math.sin(p.baseAngle) * r + wy;
+            p.x += (tx - p.x) * 0.10;
+            p.y += (ty - p.y) * 0.10;
+            // subtle shimmer driven by audio
+            p.x += Math.sin(t * 6 + p.phase) * currentAudioHigh * 2;
+            p.y += Math.cos(t * 5 + p.phase) * currentAudioHigh * 2;
+            break;
+          }
+        }
+
+        // Soft CIRCULAR boundary (no rectangular clamp → no straight edge
+        // lines). If a particle drifts past maxR, pull it back along its
+        // radial direction only, gently, so the cloud stays round.
+        const ox = p.x - cx, oy = p.y - cy;
+        const odist = Math.sqrt(ox * ox + oy * oy);
+        if (odist > PCANVAS_MAXR) {
+          const pull = (odist - PCANVAS_MAXR) * 0.25; // soft, not a hard cut
+          const nx = ox / odist, ny = oy / odist;
+          p.x -= nx * pull;
+          p.y -= ny * pull;
+        }
+      }
+
+      // Dynamic connection distance based on state
+      const connDist = currentState === 'recording' ? 64 : currentState === 'tts_playing' ? 58 : CONNECTION_DIST;
+      const connDistSq = connDist * connDist;
+      const lineFlicker = currentState === 'recording' ? (Math.random() * 0.5 + 0.5) : 1;
+
+      // Draw connections. Cull with squared distance (no sqrt in the hot
+      // O(n²) path); only compute the real distance for surviving pairs.
+      pCtx.lineWidth = currentState === 'tts_playing' ? 0.8 : 0.5;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const pi = particles[i];
+        for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+          const pj = particles[j];
+          const dx = pi.x - pj.x;
+          const dy = pi.y - pj.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < connDistSq) {
+            const dist = Math.sqrt(distSq);
+            // deeper (front) pairs draw their links a bit stronger → depth read
+            const depthFade = (pi.depth + pj.depth) * 0.5;
+            const alpha = (1 - dist / connDist) * col.line * lineFlicker * depthFade;
+            pCtx.strokeStyle = `rgba(${col.r},${col.g},${col.b},${alpha})`;
+            pCtx.beginPath();
+            pCtx.moveTo(pi.x, pi.y);
+            pCtx.lineTo(pj.x, pj.y);
+            pCtx.stroke();
+          }
+        }
+      }
+
+      // Draw particles. Depth shapes size + alpha so the cloud reads as
+      // layered (back = small/dim, front = big/sharp). Hot particles sparkle.
+      const audioGlow = currentState === 'recording' || currentState === 'tts_playing'
+        ? currentAudioLevel : 0;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const p = particles[i];
+        // per-particle burst lifts brightness/size when reacting to audio
+        const burstAmt = Math.min(1, p.burst / 60);
+        let glow, sz;
+        switch (currentState) {
+          case 'recording':
+            glow = (0.55 + audioGlow * 0.35 + burstAmt * 0.3) * p.depth;
+            sz = p.size * (1 + burstAmt * 0.9);
+            break;
+          case 'tts_playing':
+            glow = (0.5 + audioGlow * 0.35 + burstAmt * 0.3) * p.depth;
+            sz = p.size * (1 + burstAmt * 0.7);
+            break;
+          default:
+            glow = (0.35 + 0.25 * p.depth) * p.depth;
+            sz = p.size;
+        }
+        // depth-based base blur; audio adds a touch
+        if (p.hot) {
+          // sparkle particles glow regardless of state
+          pCtx.shadowBlur = 6 + p.depth * 6 + audioGlow * 6;
+          pCtx.shadowColor = `rgba(${col.r},${col.g},${col.b},${0.5 * p.depth})`;
+          glow = Math.min(1, glow + 0.35);
+        } else {
+          pCtx.shadowBlur = (2 + audioGlow * 6) * p.depth;
+          pCtx.shadowColor = `rgba(${col.r},${col.g},${col.b},${0.3 * p.depth})`;
+        }
+        pCtx.fillStyle = `rgba(${col.r},${col.g},${col.b},${Math.min(1, glow)})`;
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, Math.max(0.3, sz), 0, Math.PI * 2);
+        pCtx.fill();
+      }
+      pCtx.shadowBlur = 0;
+
+      // Core glow — soft central light that brightens with audio.
+      const coreBase = currentState === 'idle' ? 0.05 : 0.08;
+      const coreAlpha = coreBase + audioGlow * 0.18;
+      if (coreAlpha > 0.01) {
+        const coreR = 70 + audioGlow * 40;
+        const grad = pCtx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+        grad.addColorStop(0, `rgba(${col.r},${col.g},${col.b},${coreAlpha})`);
+        grad.addColorStop(1, `rgba(${col.r},${col.g},${col.b},0)`);
+        pCtx.fillStyle = grad;
+        pCtx.beginPath();
+        pCtx.arc(cx, cy, coreR, 0, Math.PI * 2);
+        pCtx.fill();
+      }
+
+      // Audio level display
+      valAudioLevel.textContent = currentAudioLevel.toFixed(2);
+
+      // FPS counter
+      frameCount++;
+      if (timestamp - lastFpsTime >= 1000) {
+        $('fpsDisplay').textContent = `FPS ${frameCount}`;
+        frameCount = 0;
+        lastFpsTime = timestamp;
+      }
+
+      requestAnimationFrame(animateParticles);
+    }
+
+    requestAnimationFrame(animateParticles);
+
+    // ============================================================
+    //  REAL-TIME CLOCK
+    // ============================================================
+    // 상태별 HUD 텍스트
+    const HUD_TEXT = {
+      idle:        'AWAITING COMMAND',
+      recording:   'VOICE CAPTURE :: ACTIVE',
+      processing:  'TRANSCRIBING...',
+      thinking:    'PROCESSING QUERY...',
+      tts_playing: 'VOICE OUTPUT :: STREAMING',
+    };
+
+    function updateHudText(state) {
+      timeDisplay.textContent = HUD_TEXT[state] || HUD_TEXT.idle;
+    }
+
+    // ============================================================
+    //  CONVERSATION LOG
+    // ============================================================
+    const MAX_MESSAGES = 20;
+    let activeTypingTimer = null;
+    let activeTypingEl = null;
+    let activeCursorEl = null;
+    let activeOutputMsg = null;
+    let activeWaveformAnim = null;
+    let activeWaveformCanvas = null;
+    let listeningMsg = null;        // 녹음 중 LISTENING 메시지
+    let listeningWaveform = null;   // 녹음 중 파형 캔버스
+
+    // ---- Mini Waveform ----
+    function createWaveform(role) {
+      const canvas = document.createElement('canvas');
+      canvas.className = 'msg-waveform';
+      canvas.width = 24;
+      canvas.height = 40;
+      const color = role === 'user' ? '#00d4ff' : '#00ff88';
+      // 정적 파형 그리기 (초기 상태)
+      drawStaticWaveform(canvas, color, 0.3);
+      return canvas;
+    }
+
+    function drawStaticWaveform(canvas, color, intensity) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const barCount = 5;
+      const barW = 2;
+      const gap = (w - barCount * barW) / (barCount + 1);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.4;
+      for (let i = 0; i < barCount; i++) {
+        const x = gap + i * (barW + gap);
+        const barH = 4 + Math.sin(i * 1.2) * intensity * 12 + intensity * 8;
+        const y = (h - barH) / 2;
+        ctx.fillRect(x, y, barW, barH);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function animateWaveformCanvas(canvas, color) {
+      // 활성 파형 멈추기
+      if (activeWaveformAnim) {
+        cancelAnimationFrame(activeWaveformAnim);
+        // 이전 캔버스를 정적으로
+        if (activeWaveformCanvas) drawStaticWaveform(activeWaveformCanvas, activeWaveformCanvas.dataset.color, 0.3);
+      }
+      activeWaveformCanvas = canvas;
+      canvas.dataset.color = color;
+
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const barCount = 5;
+      const barW = 2;
+      const gap = (w - barCount * barW) / (barCount + 1);
+
+      function draw(t) {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = color;
+        for (let i = 0; i < barCount; i++) {
+          const x = gap + i * (barW + gap);
+          const wave = Math.sin(t * 0.005 + i * 1.8) * 0.5 + 0.5;
+          const pulse = Math.sin(t * 0.008 + i * 0.7) * 0.3 + 0.7;
+          const barH = 4 + wave * pulse * 28;
+          const y = (h - barH) / 2;
+          ctx.globalAlpha = 0.5 + wave * 0.5;
+          ctx.fillRect(x, y, barW, barH);
+        }
+        ctx.globalAlpha = 1;
+        activeWaveformAnim = requestAnimationFrame(draw);
+      }
+      activeWaveformAnim = requestAnimationFrame(draw);
+    }
+
+    function stopWaveformAnim() {
+      if (activeWaveformAnim) {
+        cancelAnimationFrame(activeWaveformAnim);
+        activeWaveformAnim = null;
+      }
+      if (activeWaveformCanvas) {
+        drawStaticWaveform(activeWaveformCanvas, activeWaveformCanvas.dataset.color || '#00ff88', 0.3);
+        activeWaveformCanvas = null;
+      }
+    }
+
+    // ---- Listening message (녹음 중 표시) ----
+    function showListening() {
+      if (listeningMsg) return;  // 이미 표시 중
+
+      listeningMsg = document.createElement('div');
+      listeningMsg.className = 'conv-msg user';
+
+      const waveform = createWaveform('user');
+      listeningWaveform = waveform;
+      const content = document.createElement('div');
+      content.className = 'msg-content';
+
+      const label = document.createElement('div');
+      label.className = 'msg-label';
+      label.textContent = 'USER INPUT';
+
+      const textEl = document.createElement('span');
+      textEl.className = 'msg-text';
+      textEl.textContent = 'LISTENING...';
+      textEl.style.color = 'rgba(0, 212, 255, 0.5)';
+      textEl.style.fontStyle = 'italic';
+
+      content.appendChild(label);
+      content.appendChild(textEl);
+      listeningMsg.appendChild(waveform);
+      listeningMsg.appendChild(content);
+      conversationLog.appendChild(listeningMsg);
+      conversationLog.scrollTop = conversationLog.scrollHeight;
+
+      // 파형 애니메이션 시작
+      animateWaveformCanvas(waveform, '#00d4ff');
+    }
+
+    function updateListeningWaveform(level) {
+      // 오디오 레벨에 반응하는 파형 (녹음 중)
+      if (!listeningWaveform) return;
+      const canvas = listeningWaveform;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const barCount = 5;
+      const barW = 2;
+      const gap = (w - barCount * barW) / (barCount + 1);
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#00d4ff';
+      const t = performance.now();
+      for (let i = 0; i < barCount; i++) {
+        const x = gap + i * (barW + gap);
+        const wave = Math.sin(t * 0.006 + i * 1.5) * 0.3 + 0.7;
+        const barH = 4 + level * wave * 30;
+        const y = (h - barH) / 2;
+        ctx.globalAlpha = 0.5 + level * 0.5;
+        ctx.fillRect(x, y, barW, barH);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function replaceListeningWithText(text) {
+      if (listeningMsg) {
+        // LISTENING 메시지를 실제 텍스트로 교체
+        const textEl = listeningMsg.querySelector('.msg-text');
+        if (textEl) {
+          textEl.textContent = text;
+          textEl.style.color = '';
+          textEl.style.fontStyle = '';
+        }
+        // 파형을 정적 잔상으로
+        if (listeningWaveform) {
+          drawStaticWaveform(listeningWaveform, '#00d4ff', 0.6);
+        }
+        // 활성 파형 정리 (이 캔버스가 activeWaveformCanvas면)
+        if (activeWaveformCanvas === listeningWaveform) {
+          cancelAnimationFrame(activeWaveformAnim);
+          activeWaveformAnim = null;
+          activeWaveformCanvas = null;
+        }
+        listeningMsg = null;
+        listeningWaveform = null;
+      }
+    }
+
+    function removeListening() {
+      if (listeningMsg) {
+        listeningMsg.remove();
+        if (activeWaveformCanvas === listeningWaveform) {
+          cancelAnimationFrame(activeWaveformAnim);
+          activeWaveformAnim = null;
+          activeWaveformCanvas = null;
+        }
+        listeningMsg = null;
+        listeningWaveform = null;
+      }
+    }
+
+    function addMessage(role, text) {
+      const msg = document.createElement('div');
+      msg.className = `conv-msg ${role}`;
+
+      const waveform = createWaveform(role);
+      const content = document.createElement('div');
+      content.className = 'msg-content';
+
+      const label = document.createElement('div');
+      label.className = 'msg-label';
+      label.textContent = role === 'user' ? 'USER INPUT' : 'CLAUDE OUTPUT';
+
+      const textEl = document.createElement('span');
+      textEl.className = 'msg-text';
+      textEl.textContent = text;
+
+      content.appendChild(label);
+      content.appendChild(textEl);
+      msg.appendChild(waveform);
+      msg.appendChild(content);
+      conversationLog.appendChild(msg);
+
+      while (conversationLog.children.length > MAX_MESSAGES) {
+        conversationLog.removeChild(conversationLog.firstChild);
+      }
+      conversationLog.scrollTop = conversationLog.scrollHeight;
+
+      // 유저 입력 파형: 짧게 애니메이션 후 정지
+      if (role === 'user') {
+        const color = '#00d4ff';
+        animateWaveformCanvas(waveform, color);
+        setTimeout(() => {
+          if (activeWaveformCanvas === waveform) {
+            stopWaveformAnim();
+            drawStaticWaveform(waveform, color, 0.6);  // 잔상
+          }
+        }, 1500);
+      }
+
+      return msg;
+    }
+
+    function stopActiveTyping() {
+      if (activeTypingTimer) {
+        clearInterval(activeTypingTimer);
+        activeTypingTimer = null;
+        // 남은 텍스트 즉시 표시
+        if (activeTypingEl && activeTypingEl.dataset.remaining) {
+          activeTypingEl.textContent += activeTypingEl.dataset.remaining;
+          activeTypingEl.dataset.remaining = '';
+        }
+      }
+      if (activeCursorEl) {
+        activeCursorEl.remove();
+        activeCursorEl = null;
+      }
+    }
+
+    function appendChunk(text, duration) {
+      // 이전 타이핑 완료 처리
+      stopActiveTyping();
+
+      // assistant 메시지가 없으면 새로 생성
+      if (!activeOutputMsg) {
+        activeOutputMsg = document.createElement('div');
+        activeOutputMsg.className = 'conv-msg assistant';
+
+        const waveform = createWaveform('assistant');
+        const content = document.createElement('div');
+        content.className = 'msg-content';
+
+        const label = document.createElement('div');
+        label.className = 'msg-label';
+        label.textContent = 'CLAUDE OUTPUT';
+
+        const textEl = document.createElement('span');
+        textEl.className = 'msg-text';
+
+        content.appendChild(label);
+        content.appendChild(textEl);
+        activeOutputMsg.appendChild(waveform);
+        activeOutputMsg.appendChild(content);
+        conversationLog.appendChild(activeOutputMsg);
+
+        while (conversationLog.children.length > MAX_MESSAGES) {
+          conversationLog.removeChild(conversationLog.firstChild);
+        }
+      }
+
+      // 파형 애니메이션 시작 (TTS 재생 중)
+      const waveformCanvas = activeOutputMsg.querySelector('.msg-waveform');
+      if (waveformCanvas) {
+        animateWaveformCanvas(waveformCanvas, '#00ff88');
+      }
+
+      const textEl = activeOutputMsg.querySelector('.msg-text');
+
+      // 커서 추가
+      const cursor = document.createElement('span');
+      cursor.className = 'msg-cursor';
+      activeOutputMsg.appendChild(cursor);
+      activeCursorEl = cursor;
+
+      // 실제 TTS duration에 맞춰 타이핑
+      const totalChars = text.length;
+      const intervalMs = Math.max(20, (duration * 1000) / totalChars);
+      let idx = 0;
+
+      activeTypingEl = textEl;
+      textEl.dataset.remaining = text;
+
+      activeTypingTimer = setInterval(() => {
+        if (idx < totalChars) {
+          textEl.textContent += text[idx];
+          textEl.dataset.remaining = text.substring(idx + 1);
+          idx++;
+          conversationLog.scrollTop = conversationLog.scrollHeight;
+        } else {
+          clearInterval(activeTypingTimer);
+          activeTypingTimer = null;
+          textEl.dataset.remaining = '';
+          if (activeCursorEl) { activeCursorEl.remove(); activeCursorEl = null; }
+        }
+      }, intervalMs);
+
+      conversationLog.scrollTop = conversationLog.scrollHeight;
+    }
+
+    // ============================================================
+    //  WEBSOCKET
+    // ============================================================
+    function connect() {
+      if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        wsDot.classList.add('connected');
+        wsLabel.textContent = 'CONNECTED';
+        $('dpSys').textContent = 'SYS.OK';
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        // 부팅 시퀀스 없이 연결되면 HUD 바로 표시 (드라이브 모드 등)
+        const hud = document.querySelector('.hud-container');
+        if (hud && hud.classList.contains('hidden')) {
+          hud.classList.remove('hidden');
+          hud.classList.add('reveal');
+        }
+        // Request session list from server
+        requestSessionList();
+        // Request chat history from server (sync across devices)
+        ws.send(JSON.stringify({ type: 'chat_history_request', tab_id: ASSISTANT_TAB_ID }));
+      };
+
+      ws.onclose = () => {
+        wsDot.classList.remove('connected');
+        wsLabel.textContent = 'DISCONNECTED';
+        $('dpSys').textContent = 'SYS.OFFLINE';
+        scheduleReconnect();
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          handleMessage(msg);
+        } catch (e) {
+          // ignore malformed messages
+        }
+      };
+    }
+
+    function scheduleReconnect() {
+      if (reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, RECONNECT_INTERVAL);
+    }
+
+    function handleMessage(msg) {
+      switch (msg.type) {
+        case 'state': {
+          const newState = msg.value || 'idle';
+          if (THEMES[newState] && newState !== currentState) {
+            setUIState(newState);
+
+            if (newState === 'recording') {
+              showListening();
+              // Mobile: TTS 재생 완료 후 Web Speech 시작
+              if (isMobileView && !webSpeechActive) {
+                if (ttsAudioPlaying || ttsAudioQueue.length > 0) {
+                  _pendingListenAfterTts = true;
+                } else {
+                  if (!webSpeechRecognition) webSpeechRecognition = initWebSpeech();
+                  if (webSpeechRecognition) {
+                    try { webSpeechRecognition.start(); } catch(e) {}
+                  }
+                }
+              }
+            } else if (newState === 'processing') {
+              if (listeningWaveform && activeWaveformCanvas === listeningWaveform) {
+                stopWaveformAnim();
+              }
+            } else if (newState === 'idle') {
+              // 음성 종료 → 구름 복귀 (TTS 음량 구동값의 유일한 권위적 리셋 지점)
+              targetAudioLevel = 0;
+              targetAudioLow = 0;
+              targetAudioMid = 0;
+              targetAudioHigh = 0;
+              stopActiveTyping();
+              stopWaveformAnim();
+              activeOutputMsg = null;
+              // Mobile: 서버가 idle 브로드캐스트하면 Web Speech 중지
+              if (isMobileView && webSpeechActive) {
+                stopWebSpeech();
+              }
+            }
+          }
+          break;
+        }
+
+        case 'audio_level': {
+          const v = parseFloat(msg.value);
+          if (!isNaN(v)) {
+            targetAudioLevel = Math.max(0, Math.min(1, v));
+            // 3밴드 주파수 데이터
+            if (msg.low !== undefined) targetAudioLow = Math.max(0, Math.min(1, msg.low));
+            if (msg.mid !== undefined) targetAudioMid = Math.max(0, Math.min(1, msg.mid));
+            if (msg.high !== undefined) targetAudioHigh = Math.max(0, Math.min(1, msg.high));
+            // 녹음 중이면 LISTENING 파형도 업데이트
+            if (currentState === 'recording') {
+              updateListeningWaveform(v);
+            }
+          }
+          break;
+        }
+
+        case 'transcript':
+        case 'input': {
+          if (msg.value) {
+            stopActiveTyping();
+            activeOutputMsg = null;
+            // LISTENING 메시지가 있으면 텍스트로 교체, 없으면 새로 생성
+            if (listeningMsg) {
+              replaceListeningWithText(msg.value);
+            } else {
+              addMessage('user', msg.value);
+            }
+            setUIState('thinking');
+          }
+          break;
+        }
+
+        case 'output': {
+          // 레거시: 전체 텍스트 한번에 (output_chunk를 안 쓰는 경우)
+          if (msg.value) {
+            stopActiveTyping();
+            activeOutputMsg = null;
+            addMessage('assistant', msg.value);
+          }
+          break;
+        }
+
+        case 'output_chunk': {
+          // 청크 단위 TTS 싱크 타이핑: "duration|text" 형식
+          if (msg.value) {
+            const sepIdx = msg.value.indexOf('|');
+            if (sepIdx > 0) {
+              const duration = parseFloat(msg.value.substring(0, sepIdx));
+              const text = msg.value.substring(sepIdx + 1);
+              if (text && !isNaN(duration)) {
+                appendChunk(text, duration);
+              }
+            }
+          }
+          break;
+        }
+
+        case 'code_action': {
+          // Claude Code 도구 사용 시각화
+          // format: "ACTION_TYPE|filename|detail1|detail2"
+          if (msg.value) {
+            const panel = $('codePanel');
+            const content = $('codePanelContent');
+            const status = $('codePanelStatus');
+            panel.classList.add('active');
+
+            const parts = msg.value.split('|');
+            const actionType = (parts[0] || '').trim();
+            const target = (parts[1] || '').trim();
+            const detail1 = (parts[2] || '').trim();
+            const detail2 = (parts[3] || '').trim();
+
+            status.textContent = actionType;
+
+            const action = document.createElement('div');
+            action.className = 'code-action';
+
+            const typeEl = document.createElement('div');
+            typeEl.className = 'code-action-type ' + actionType.toLowerCase();
+            typeEl.textContent = '> ' + actionType;
+
+            const fileEl = document.createElement('div');
+            fileEl.className = 'code-action-file';
+            fileEl.textContent = target;
+
+            action.appendChild(typeEl);
+            action.appendChild(fileEl);
+
+            if (detail1 || detail2) {
+              const detailEl = document.createElement('div');
+              detailEl.className = 'code-action-detail';
+              if (actionType === 'EDITING') {
+                if (detail1) {
+                  const del = document.createElement('span');
+                  del.className = 'line-del';
+                  del.textContent = detail1;
+                  detailEl.appendChild(del);
+                  detailEl.appendChild(document.createElement('br'));
+                }
+                if (detail2) {
+                  const add = document.createElement('span');
+                  add.className = 'line-add';
+                  add.textContent = detail2;
+                  detailEl.appendChild(add);
+                }
+              } else {
+                detailEl.textContent = detail1;
+              }
+              action.appendChild(detailEl);
+            }
+
+            content.appendChild(action);
+
+            // Keep last 15 actions
+            while (content.children.length > 15) {
+              content.removeChild(content.firstChild);
+            }
+            content.scrollTop = content.scrollHeight;
+
+            // Auto-hide after 30s of no activity
+            if (panel._hideTimer) clearTimeout(panel._hideTimer);
+            panel._hideTimer = setTimeout(() => {
+              panel.classList.remove('active');
+              status.textContent = 'IDLE';
+            }, 30000);
+          }
+          break;
+        }
+
+        case 'browser_frame': {
+          // Chrome CDP 스크린샷 스트리밍
+          if (msg.value) {
+            const feed = $('browserFeed');
+            const img = $('feedImage');
+            feed.classList.add('active');
+            img.src = 'data:image/jpeg;base64,' + msg.value;
+          }
+          break;
+        }
+
+        case 'camera_frame': {
+          // 카메라 캡처 이미지 표시 (브라우저 피드 영역 재활용)
+          if (msg.value) {
+            const feed = $('browserFeed');
+            const img = $('feedImage');
+            const title = feed.querySelector('.feed-title');
+            if (title) title.textContent = 'CAMERA FEED';
+            feed.classList.add('active');
+            img.src = 'data:image/jpeg;base64,' + msg.value;
+          }
+          break;
+        }
+
+        case 'face_recognized': {
+          // 인물 인식 결과 표시
+          if (msg.value) {
+            const parts = msg.value.split('|');
+            const name = parts[0] || 'unknown';
+            const confidence = parseFloat(parts[1] || '0');
+            const overlay = $('faceRecognitionOverlay');
+            const label = $('faceRecognitionLabel');
+            const isKnown = name.toLowerCase() !== 'unknown';
+
+            // 클래스 설정
+            label.className = 'face-recognition-label ' + (isKnown ? 'known' : 'unknown');
+            label.innerHTML = (isKnown ? name : 'UNKNOWN') +
+              '<span class="face-confidence">' + (confidence * 100).toFixed(0) + '%</span>';
+
+            // 표시
+            overlay.classList.remove('fade-out');
+            overlay.classList.add('visible');
+
+            // 기존 타이머 클리어
+            if (overlay._fadeTimer) clearTimeout(overlay._fadeTimer);
+
+            // 3초 후 페이드아웃
+            overlay._fadeTimer = setTimeout(() => {
+              overlay.classList.add('fade-out');
+              setTimeout(() => {
+                overlay.classList.remove('visible', 'fade-out');
+              }, 400);
+            }, 3000);
+          }
+          break;
+        }
+
+        case 'browser_stop': {
+          // 브라우저 피드 종료
+          $('browserFeed').classList.remove('active');
+          break;
+        }
+
+        case 'ui_action': {
+          // Iron Man hologram UI commands
+          const action = (msg.value || '').toLowerCase();
+          if (action === 'zoom_in' || action === 'expand') {
+            expandBrowserFeed();
+          } else if (action === 'zoom_out' || action === 'collapse' || action === 'close') {
+            collapseBrowserFeed();
+          } else if (action === 'browser_boot') {
+            bootBrowserFeed();
+          } else if (action === 'system_boot' || action === 'system_boot_1') {
+            runSystemBoot(1);
+          } else if (action === 'system_boot_2') {
+            runSystemBoot(2);
+          } else if (action === 'system_boot_3') {
+            runSystemBoot(3);
+          }
+          break;
+        }
+
+        case 'config': {
+          // Optional: update panel values from server config
+          if (msg.model) $('valModel').textContent = msg.model.toUpperCase();
+          if (msg.language) $('valLang').textContent = msg.language.toUpperCase();
+          if (msg.mode) $('valMode').textContent = msg.mode.toUpperCase();
+          if (msg.history_count != null) $('valHistory').textContent = msg.history_count + ' ITEMS';
+          break;
+        }
+
+        case 'latency': {
+          if (msg.value != null) $('dpLatency').textContent = `LATENCY ${Math.round(msg.value)}ms`;
+          break;
+        }
+
+        case 'tts_audio': {
+          if (msg.value) {
+            console.log('[TTS] Received tts_audio, size:', msg.value.length, 'unlocked:', _ttsAudioUnlocked);
+            try {
+              const binary = atob(msg.value);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+              }
+              ttsAudioQueue.push(bytes.buffer);
+              if (!ttsAudioPlaying) {
+                playNextTtsChunk();
+              }
+            } catch (e) {
+              console.error('tts_audio decode error:', e);
+            }
+          }
+          break;
+        }
+
+        case 'tts_done': {
+          // 서버가 이후 recording 상태를 브로드캐스트 → state 핸들러에서 처리
+          break;
+        }
+
+        case 'stl_view': {
+          stlViewerOpen(msg.value, msg.label);
+          break;
+        }
+
+        case 'stl_close': {
+          stlViewerClose();
+          break;
+        }
+
+        // ---- Chat messages (single session) ----
+        case 'chat_chunk': {
+          if (msg.content != null) {
+            appendToAssistantMessage(msg.content, msg.chunk_type);
+          }
+          break;
+        }
+
+        case 'chat_done': {
+          finalizeAssistantMessage();
+          break;
+        }
+
+        case 'chat_error': {
+          if (msg.error) {
+            addChatMessage('error', msg.error);
+            isStreaming = false;
+            chatSlideInput.disabled = false;
+            chatSlideInput.placeholder = 'Enter message...';
+          }
+          break;
+        }
+
+        case 'chat_history': {
+          if (msg.messages && Array.isArray(msg.messages)) {
+            chatMessages = msg.messages;
+            renderAllChatMessages();
+          }
+          break;
+        }
+
+        case 'chat_tool': {
+          if (msg.content) {
+            addChatMessage('tool', msg.content);
+          }
+          break;
+        }
+
+        case 'file_uploaded': {
+          handleFileUploaded(msg);
+          break;
+        }
+
+        // Legacy session messages - ignore silently
+        case 'session_list_response':
+        case 'session_created':
+        case 'session_deleted': {
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+
+    // ============================================================
+    //  STL 3D VIEWER (Hologram Style)
+    // ============================================================
+    let stlScene = null, stlCamera = null, stlRenderer = null, stlAnimId = null;
+    let stlMeshGroup = null;
+
+    function parseSTLBinary(buffer) {
+      const dv = new DataView(buffer);
+      const triangles = dv.getUint32(80, true);
+      const geometry = new THREE.BufferGeometry();
+      const vertices = new Float32Array(triangles * 9);
+      const normals = new Float32Array(triangles * 9);
+      let offset = 84;
+      for (let i = 0; i < triangles; i++) {
+        const nx = dv.getFloat32(offset, true); offset += 4;
+        const ny = dv.getFloat32(offset, true); offset += 4;
+        const nz = dv.getFloat32(offset, true); offset += 4;
+        for (let v = 0; v < 3; v++) {
+          const idx = i * 9 + v * 3;
+          vertices[idx]     = dv.getFloat32(offset, true); offset += 4;
+          vertices[idx + 1] = dv.getFloat32(offset, true); offset += 4;
+          vertices[idx + 2] = dv.getFloat32(offset, true); offset += 4;
+          normals[idx]     = nx;
+          normals[idx + 1] = ny;
+          normals[idx + 2] = nz;
+        }
+        offset += 2; // attribute byte count
+      }
+      geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      geometry.computeBoundingSphere();
+      return geometry;
+    }
+
+    function stlViewerOpen(base64Data, label) {
+      const container = $('stlContainer');
+      const overlay = $('stlOverlay');
+
+      // Clean up previous
+      stlViewerClose();
+
+      // Decode base64 to ArrayBuffer
+      const binary = atob(base64Data);
+      const buffer = new ArrayBuffer(binary.length);
+      const view = new Uint8Array(buffer);
+      for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+
+      // Parse STL
+      const geometry = parseSTLBinary(buffer);
+
+      // Setup Three.js scene
+      stlScene = new THREE.Scene();
+
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      stlCamera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000);
+
+      stlRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      stlRenderer.setSize(w, h);
+      stlRenderer.setPixelRatio(window.devicePixelRatio);
+      stlRenderer.setClearColor(0x000000, 0);
+      container.appendChild(stlRenderer.domElement);
+
+      // Group for rotation
+      stlMeshGroup = new THREE.Group();
+
+      // Wireframe mesh (cyan)
+      const wireMat = new THREE.MeshBasicMaterial({
+        color: 0x00d4ff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.35,
+      });
+      const wireMesh = new THREE.Mesh(geometry, wireMat);
+      stlMeshGroup.add(wireMesh);
+
+      // Semi-transparent solid mesh
+      const solidMat = new THREE.MeshPhongMaterial({
+        color: 0x00d4ff,
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.DoubleSide,
+        shininess: 80,
+        specular: 0x00d4ff,
+      });
+      const solidMesh = new THREE.Mesh(geometry, solidMat);
+      stlMeshGroup.add(solidMesh);
+
+      // Edge glow (slightly brighter wireframe)
+      const edgeMat = new THREE.MeshBasicMaterial({
+        color: 0x66eeff,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.08,
+      });
+      const edgeMesh = new THREE.Mesh(geometry, edgeMat);
+      edgeMesh.scale.set(1.002, 1.002, 1.002);
+      stlMeshGroup.add(edgeMesh);
+
+      stlScene.add(stlMeshGroup);
+
+      // Center geometry
+      geometry.computeBoundingBox();
+      const box = geometry.boundingBox;
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      stlMeshGroup.position.set(-center.x, -center.y, -center.z);
+
+      // Camera position based on bounding sphere
+      const sphere = geometry.boundingSphere;
+      const dist = sphere.radius * 2.8;
+      stlCamera.position.set(dist * 0.5, dist * 0.4, dist);
+      stlCamera.lookAt(0, 0, 0);
+
+      // Lights
+      const ambient = new THREE.AmbientLight(0x00d4ff, 0.4);
+      stlScene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0x00d4ff, 0.8);
+      dirLight.position.set(1, 1, 1);
+      stlScene.add(dirLight);
+      const backLight = new THREE.DirectionalLight(0x0066ff, 0.3);
+      backLight.position.set(-1, -0.5, -1);
+      stlScene.add(backLight);
+
+      // Label
+      if (label) $('stlLabel').textContent = label;
+      else $('stlLabel').textContent = 'HOLOGRAM RENDER';
+
+      // Show overlay
+      overlay.classList.add('active');
+
+      // Animate
+      function animate() {
+        stlAnimId = requestAnimationFrame(animate);
+        if (stlMeshGroup) stlMeshGroup.rotation.y += 0.008;
+        stlRenderer.render(stlScene, stlCamera);
+      }
+      animate();
+
+      // Resize handler
+      window._stlResize = () => {
+        if (!stlRenderer || !stlCamera) return;
+        const nw = container.clientWidth;
+        const nh = container.clientHeight;
+        stlCamera.aspect = nw / nh;
+        stlCamera.updateProjectionMatrix();
+        stlRenderer.setSize(nw, nh);
+      };
+      window.addEventListener('resize', window._stlResize);
+    }
+
+    function stlViewerClose() {
+      const overlay = $('stlOverlay');
+      overlay.classList.remove('active');
+      if (stlAnimId) { cancelAnimationFrame(stlAnimId); stlAnimId = null; }
+      if (stlRenderer) {
+        stlRenderer.dispose();
+        const canvas = stlRenderer.domElement;
+        if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        stlRenderer = null;
+      }
+      if (stlScene) {
+        stlScene.traverse(obj => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+          }
+        });
+        stlScene = null;
+      }
+      stlCamera = null;
+      stlMeshGroup = null;
+      if (window._stlResize) {
+        window.removeEventListener('resize', window._stlResize);
+        window._stlResize = null;
+      }
+    }
+
+    // Close button handler
+    $('stlClose').addEventListener('click', stlViewerClose);
+    // Click overlay background to close
+    $('stlOverlay').addEventListener('click', (e) => {
+      if (e.target === $('stlOverlay')) stlViewerClose();
+    });
+
+    // ============================================================
+    //  BROWSER FEED ZOOM (Iron Man Hologram)
+    // ============================================================
+    let feedExpanded = false;
+
+    function expandBrowserFeed() {
+      const feed = $('browserFeed');
+      const overlay = $('zoomOverlay');
+      if (feedExpanded || !feed.classList.contains('active')) return;
+
+      feedExpanded = true;
+      feed.classList.remove('collapsing');
+      overlay.classList.add('active');
+
+      // Force reflow then expand
+      void feed.offsetHeight;
+      feed.classList.add('expanded');
+      playZoomInSound();
+    }
+
+    function collapseBrowserFeed() {
+      const feed = $('browserFeed');
+      const overlay = $('zoomOverlay');
+      if (!feedExpanded) return;
+
+      feedExpanded = false;
+      feed.classList.add('collapsing');
+      overlay.classList.remove('active');
+      playZoomOutSound();
+
+      // After collapse animation, reset
+      setTimeout(() => {
+        feed.classList.remove('expanded', 'collapsing');
+      }, 600);
+    }
+
+    // Click overlay to collapse
+    $('zoomOverlay').addEventListener('click', collapseBrowserFeed);
+
+    // ============================================================
+    //  SYSTEM BOOT SEQUENCE (Full-screen JARVIS initialization)
+    // ============================================================
+    function runSystemBoot(variant) {
+      variant = variant || 1;
+      const screen = $('bootScreen');
+      const reactor = $('bootReactor');
+      const title = $('bootTitle');
+      const final_ = $('bootFinal');
+      const modules = [
+        { el: $('bm0'), status: $('bs0') },
+        { el: $('bm1'), status: $('bs1') },
+        { el: $('bm2'), status: $('bs2') },
+        { el: $('bm3'), status: $('bs3') },
+      ];
+
+      // Reset shared
+      reactor.classList.remove('glow');
+      title.classList.remove('visible');
+      final_.classList.remove('flash');
+      screen.classList.remove('fadeout');
+      $('bootRR1').classList.remove('spin');
+      $('bootRR2').classList.remove('spin');
+      $('bootBeams').classList.remove('fire');
+      $('bootFlash').classList.remove('flash');
+      document.querySelectorAll('.boot-particle').forEach(p => p.classList.remove('float'));
+      modules.forEach(m => {
+        m.el.classList.remove('checking');
+        m.status.classList.remove('online', 'checking');
+        m.status.textContent = 'STANDBY';
+      });
+
+      // Reset variant 1
+      const rings = $('bootRings').querySelectorAll('.boot-ring-expand');
+      rings.forEach(r => r.classList.remove('fire'));
+      $('bootGrid').classList.remove('reveal');
+
+      // Reset variant 2
+      const circuits = $('bootCircuits').querySelectorAll('.boot-circuit-line');
+      const nodes = $('bootCircuits').querySelectorAll('.boot-circuit-node');
+      circuits.forEach(c => { c.classList.remove('extend', 'active'); c.style.width = '0'; });
+      nodes.forEach(n => n.classList.remove('pulse'));
+
+      // Reset variant 3
+      $('bootScanDown').classList.remove('sweep-down');
+      $('bootScanUp').classList.remove('sweep-up');
+      $('bootHex').classList.remove('reveal');
+      document.querySelectorAll('.boot-data-stream').forEach(d => d.classList.remove('flow'));
+
+      // Hide all variant elements initially
+      $('bootRings').style.display = 'none';
+      $('bootGrid').style.display = 'none';
+      $('bootCircuits').style.display = 'none';
+      document.querySelectorAll('.boot-particle').forEach(p => p.style.display = 'none');
+      $('bootScanDown').style.display = 'none';
+      $('bootScanUp').style.display = 'none';
+      $('bootHex').style.display = 'none';
+      document.querySelectorAll('.boot-data-stream').forEach(d => d.style.display = 'none');
+
+      // Show boot screen
+      screen.classList.add('active');
+      void screen.offsetHeight;
+
+      // Phase 1: Reactor glow (0ms) — shared
+      reactor.classList.add('glow');
+      playBootSound();
+
+      // Variant-specific effects
+      // Reactor inner rings spin (all variants)
+      setTimeout(() => {
+        $('bootRR1').classList.add('spin');
+        $('bootRR2').classList.add('spin');
+      }, 400);
+
+      if (variant === 1) {
+        // ── Energy Rings (Enhanced) ──
+        $('bootRings').style.display = '';
+        $('bootGrid').style.display = '';
+
+        // Energy beams burst
+        setTimeout(() => { $('bootBeams').classList.add('fire'); }, 200);
+        // Rings fire with stagger
+        setTimeout(() => { rings.forEach(r => r.classList.add('fire')); }, 300);
+        // Hex grid reveal from center
+        setTimeout(() => { $('bootGrid').classList.add('reveal'); }, 500);
+        // Floating particles
+        setTimeout(() => {
+          document.querySelectorAll('.boot-particle').forEach(p => { p.style.display = ''; p.classList.add('float'); });
+        }, 400);
+
+      } else if (variant === 2) {
+        // ── Circuit Lines ──
+        $('bootCircuits').style.display = '';
+
+        setTimeout(() => { circuits.forEach(c => c.classList.add('extend')); }, 300);
+        const nodeDelays = [800, 1000, 1200, 1400];
+        nodes.forEach((n, i) => {
+          setTimeout(() => n.classList.add('pulse'), nodeDelays[i]);
+        });
+
+      } else if (variant === 3) {
+        // ── Hologram Scan ──
+        $('bootScanDown').style.display = '';
+        $('bootScanUp').style.display = '';
+        $('bootHex').style.display = '';
+        document.querySelectorAll('.boot-data-stream').forEach(d => d.style.display = '');
+
+        setTimeout(() => {
+          $('bootScanDown').classList.add('sweep-down');
+          $('bootScanUp').classList.add('sweep-up');
+        }, 300);
+        setTimeout(() => { $('bootHex').classList.add('reveal'); }, 500);
+        setTimeout(() => {
+          document.querySelectorAll('.boot-data-stream').forEach((d, i) => {
+            setTimeout(() => d.classList.add('flow'), i * 150);
+          });
+        }, 400);
+      }
+
+      // Phase 3: Title (500ms) — shared
+      setTimeout(() => { title.classList.add('visible'); }, 500);
+
+      // Phase 4: Modules (900~1800ms) — with yellow checking → green online
+      const moduleDelay = [900, 1200, 1500, 1800];
+      modules.forEach((m, i) => {
+        setTimeout(() => {
+          m.el.classList.add('checking');
+          m.status.textContent = 'CHECKING...';
+          m.status.classList.add('checking');
+        }, moduleDelay[i]);
+        setTimeout(() => {
+          m.status.textContent = 'ONLINE';
+          m.status.classList.remove('checking');
+          m.status.classList.add('online');
+        }, moduleDelay[i] + 250);
+      });
+
+      // Phase 5: Final (2300ms) + screen flash
+      setTimeout(() => {
+        final_.classList.add('flash');
+        $('bootFlash').classList.add('flash');
+      }, 2300);
+
+      // Phase 6: Fade out (3200ms)
+      setTimeout(() => { screen.classList.add('fadeout'); }, 3200);
+
+      // Phase 7: Hide + HUD reveal (3700ms)
+      setTimeout(() => {
+        screen.classList.remove('active', 'fadeout');
+        const hud = document.querySelector('.hud-container');
+        hud.classList.remove('hidden');
+        hud.classList.add('reveal');
+      }, 3700);
+    }
+
+    // ============================================================
+    //  BROWSER BOOT SEQUENCE (Iron Man Hologram Materialization)
+    // ============================================================
+    function bootBrowserFeed() {
+      const feed = $('browserFeed');
+      const overlay = $('bootOverlay');
+      const ring = $('bootRing');
+      const hline = $('bootHline');
+      const vline = $('bootVline');
+      const text = $('bootText');
+
+      // Reset all
+      ring.classList.remove('animate');
+      hline.classList.remove('animate');
+      vline.classList.remove('animate');
+      text.classList.remove('animate');
+      feed.classList.remove('active', 'expanded', 'materializing');
+      void overlay.offsetHeight; // force reflow
+
+      // Phase 1: Lines burst + ring + sound (0ms)
+      overlay.classList.add('active');
+      hline.classList.add('animate');
+      vline.classList.add('animate');
+      ring.classList.add('animate');
+      playBootSound();
+
+      // Phase 2: Text flash + feed materializes (250ms)
+      setTimeout(() => {
+        text.classList.add('animate');
+        feed.classList.add('active', 'materializing');
+      }, 250);
+
+      // Phase 3: Complete — clean up (1200ms)
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        feed.classList.remove('materializing');
+        // Reset boot overlay
+        ring.classList.remove('animate');
+        hline.classList.remove('animate');
+        vline.classList.remove('animate');
+        text.classList.remove('animate');
+      }, 1200);
+    }
+
+    // ============================================================
+    //  MIC BUTTON
+    // ============================================================
+    if (micButton) {
+      micButton.addEventListener('click', () => {
+        unlockTtsAudio();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'remote_record', value: 'toggle' }));
+        }
+      });
+    }
+
+    // ============================================================
+    //  CHAT PANEL (Single Session - Toggle Slide)
+    // ============================================================
+    const ASSISTANT_TAB_ID = 'main_assistant';
+    const isMobileView = window.innerWidth <= 600;
+    let chatPanelOpen = isMobileView;  // Always open on mobile
+    let chatMessages = [];  // [{role, content, timestamp, _streaming}]
+    let isStreaming = false;
+
+    const chatSlideToggle = $('chatSlideToggle');
+    const chatSlidePanel = $('chatSlidePanel');
+    const chatSlideClose = $('chatSlideClose');
+    const chatSlideMessagesEl = $('chatSlideMessages');
+    const chatSlideInput = $('chatSlideInput');
+    const chatSlideSendBtn = $('chatSlideSendBtn');
+    const chatSlideMicBtn = $('chatSlideMicBtn');
+    const chatSlideBadge = $('chatSlideBadge');
+
+    // On mobile, always show chat panel + show status text
+    if (isMobileView) {
+      chatSlidePanel.classList.add('open');
+      const mst = document.getElementById('mobileStatusText');
+      if (mst) mst.style.display = 'inline';
+    }
+
+    // ---- Toggle Panel ----
+    function toggleChatPanel() {
+      chatPanelOpen = !chatPanelOpen;
+      chatSlidePanel.classList.toggle('open', chatPanelOpen);
+      chatSlideToggle.classList.toggle('active', chatPanelOpen);
+      if (chatPanelOpen) {
+        chatSlideInput.focus();
+        hideChatBadge();
+        chatSlideMessagesEl.scrollTop = chatSlideMessagesEl.scrollHeight;
+      }
+    }
+
+    function closeChatPanel() {
+      chatPanelOpen = false;
+      chatSlidePanel.classList.remove('open');
+      chatSlideToggle.classList.remove('active');
+    }
+
+    function showChatBadge() {
+      chatSlideBadge.classList.add('visible');
+    }
+
+    function hideChatBadge() {
+      chatSlideBadge.classList.remove('visible');
+    }
+
+    // ---- Markdown Renderer (simple) ----
+    function renderMarkdown(text) {
+      // Escape HTML first
+      let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // Code blocks
+      html = html.replace(/```([\s\S]*?)```/g, (_, code) => {
+        return '<pre><code>' + code.trim() + '</code></pre>';
+      });
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Bold
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      // Italic
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      // List items
+      html = html.replace(/^- (.+)/gm, '<li>$1</li>');
+      html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+      // Remove duplicate nested <ul> tags
+      html = html.replace(/<\/ul>\s*<ul>/g, '');
+      // Line breaks (but not inside pre blocks)
+      html = html.replace(/(?<!<\/pre>)\n(?!<pre>)/g, '<br>');
+
+      return html;
+    }
+
+    // ---- Format Time ----
+    function formatChatTime(ts) {
+      const d = new Date(ts);
+      return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    }
+
+    // ---- Add Message ----
+    function addChatMessage(role, content) {
+      const msg = { role, content, timestamp: Date.now() };
+      chatMessages.push(msg);
+      appendMessageElement(msg);
+      saveChatMessages();
+      chatSlideMessagesEl.scrollTop = chatSlideMessagesEl.scrollHeight;
+    }
+
+    // ---- Render Single Message Element ----
+    function appendMessageElement(msg) {
+      const el = document.createElement('div');
+      el.className = 'chat-slide-msg chat-slide-' + msg.role;
+
+      if (msg.role === 'user') {
+        const label = document.createElement('div');
+        label.className = 'chat-slide-msg-label';
+        label.textContent = 'YOU';
+        const text = document.createElement('div');
+        text.className = 'chat-slide-msg-text';
+        text.textContent = msg.content;
+        const time = document.createElement('div');
+        time.className = 'chat-slide-msg-time';
+        time.textContent = formatChatTime(msg.timestamp);
+        el.appendChild(label);
+        el.appendChild(text);
+        el.appendChild(time);
+      } else if (msg.role === 'assistant') {
+        const label = document.createElement('div');
+        label.className = 'chat-slide-msg-label';
+        label.textContent = 'JARVIS';
+        const text = document.createElement('div');
+        text.className = 'chat-slide-msg-text';
+        text.innerHTML = renderMarkdown(msg.content);
+        const time = document.createElement('div');
+        time.className = 'chat-slide-msg-time';
+        time.textContent = formatChatTime(msg.timestamp);
+        el.appendChild(label);
+        el.appendChild(text);
+        el.appendChild(time);
+      } else if (msg.role === 'tool') {
+        const summary = document.createElement('div');
+        summary.className = 'chat-slide-tool-summary';
+        const shortContent = msg.content.length > 60 ? msg.content.substring(0, 60) + '...' : msg.content;
+        summary.textContent = shortContent;
+        const detail = document.createElement('div');
+        detail.className = 'chat-slide-tool-detail';
+        detail.textContent = msg.content;
+        el.appendChild(summary);
+        el.appendChild(detail);
+        el.addEventListener('click', () => el.classList.toggle('expanded'));
+      } else if (msg.role === 'error') {
+        el.textContent = msg.content;
+      }
+
+      chatSlideMessagesEl.appendChild(el);
+    }
+
+    // ---- Render All Messages ----
+    function renderAllChatMessages() {
+      chatSlideMessagesEl.innerHTML = '';
+      chatMessages.forEach(msg => appendMessageElement(msg));
+      chatSlideMessagesEl.scrollTop = chatSlideMessagesEl.scrollHeight;
+    }
+
+    // ---- Streaming Assistant Message ----
+    function appendToAssistantMessage(content, chunkType) {
+      const lastMsg = chatMessages[chatMessages.length - 1];
+      if (lastMsg && lastMsg.role === 'assistant' && lastMsg._streaming) {
+        lastMsg.content += content;
+      } else {
+        const msg = { role: chunkType || 'assistant', content, timestamp: Date.now(), _streaming: true };
+        chatMessages.push(msg);
+      }
+
+      isStreaming = true;
+
+      // Incremental DOM update
+      const lastEl = chatSlideMessagesEl.lastElementChild;
+      if (lastEl && lastEl.classList.contains('chat-slide-assistant')) {
+        const textEl = lastEl.querySelector('.chat-slide-msg-text');
+        if (textEl) {
+          textEl.innerHTML = renderMarkdown(chatMessages[chatMessages.length - 1].content);
+          // Ensure cursor exists
+          if (!lastEl.querySelector('.chat-slide-cursor')) {
+            const cursor = document.createElement('span');
+            cursor.className = 'chat-slide-cursor';
+            textEl.appendChild(cursor);
+          }
+        }
+      } else {
+        // First chunk - create element
+        const msg = chatMessages[chatMessages.length - 1];
+        const el = document.createElement('div');
+        el.className = 'chat-slide-msg chat-slide-assistant';
+        const label = document.createElement('div');
+        label.className = 'chat-slide-msg-label';
+        label.textContent = 'JARVIS';
+        const text = document.createElement('div');
+        text.className = 'chat-slide-msg-text';
+        text.innerHTML = renderMarkdown(msg.content);
+        const cursor = document.createElement('span');
+        cursor.className = 'chat-slide-cursor';
+        text.appendChild(cursor);
+        el.appendChild(label);
+        el.appendChild(text);
+        chatSlideMessagesEl.appendChild(el);
+      }
+      chatSlideMessagesEl.scrollTop = chatSlideMessagesEl.scrollHeight;
+    }
+
+    function finalizeAssistantMessage() {
+      const lastMsg = chatMessages[chatMessages.length - 1];
+      if (lastMsg && lastMsg._streaming) {
+        delete lastMsg._streaming;
+      }
+
+      isStreaming = false;
+
+      // HUD state: back to idle + mobile ghost reactor dim
+      setUIState('idle');
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'state', value: 'idle' }));
+      }
+
+      // Remove cursor
+      const cursor = chatSlideMessagesEl.querySelector('.chat-slide-cursor');
+      if (cursor) cursor.remove();
+
+      // Add time to last assistant message
+      const lastEl = chatSlideMessagesEl.lastElementChild;
+      if (lastEl && lastEl.classList.contains('chat-slide-assistant') && !lastEl.querySelector('.chat-slide-msg-time')) {
+        const time = document.createElement('div');
+        time.className = 'chat-slide-msg-time';
+        time.textContent = formatChatTime(lastMsg ? lastMsg.timestamp : Date.now());
+        lastEl.appendChild(time);
+      }
+
+      // Re-enable input
+      chatSlideInput.disabled = false;
+      chatSlideInput.placeholder = 'Enter message...';
+
+      saveChatMessages();
+
+      // Badge if panel is closed
+      if (!chatPanelOpen) showChatBadge();
+    }
+
+    // ---- Send Message ----
+    function sendChatMessage() {
+      const text = chatSlideInput.value.trim();
+      if ((!text && !pendingImagePath) || isStreaming) return;
+
+      addChatMessage('user', text);
+
+      // Include image path if attached - instruct Claude to use Read tool
+      let msgText = text;
+      if (pendingImagePath) {
+        const userMsg = text || '이 이미지를 분석해줘';
+        msgText = `다음 이미지 파일을 Read 도구로 열어서 분석해줘: ${pendingImagePath}\n\n${userMsg}`;
+        pendingImagePath = null;
+        chatAttachPreview.style.display = 'none';
+        chatFileInput.value = '';
+      }
+
+      // HUD state: thinking + mobile arc reactor glow
+      setUIState('thinking');
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'state', value: 'thinking' }));
+        ws.send(JSON.stringify({
+          type: 'chat_input',
+          tab_id: ASSISTANT_TAB_ID,
+          text: msgText
+        }));
+      }
+
+      chatSlideInput.value = '';
+      chatSlideInput.style.height = 'auto';
+
+      // Disable input while streaming
+      chatSlideInput.disabled = true;
+      chatSlideInput.placeholder = 'Responding...';
+    }
+
+    // ---- localStorage Persistence ----
+    function saveChatMessages() {
+      try {
+        // Save only last 200 messages
+        const toSave = chatMessages.slice(-200).map(m => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp
+        }));
+        localStorage.setItem('jarvis_chat_messages', JSON.stringify(toSave));
+      } catch(e) {}
+    }
+
+    function loadChatMessages() {
+      // Load from localStorage as initial cache (server data will override on connect)
+      try {
+        const saved = localStorage.getItem('jarvis_chat_messages');
+        if (saved) {
+          chatMessages = JSON.parse(saved);
+          renderAllChatMessages();
+        }
+      } catch(e) {
+        chatMessages = [];
+      }
+    }
+
+    // ---- Model Select ----
+    const chatModelSelect = $('chatModelSelect');
+    chatModelSelect.addEventListener('change', () => {
+      const model = chatModelSelect.value;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'session_model_change',
+          tab_id: ASSISTANT_TAB_ID,
+          model: model,
+        }));
+      }
+    });
+
+    // ---- File Attach ----
+    let pendingImagePath = null;
+    const chatFileInput = $('chatFileInput');
+    const chatAttachBtn = $('chatAttachBtn');
+    const chatAttachPreview = $('chatAttachPreview');
+    const chatAttachImg = $('chatAttachImg');
+    const chatAttachRemove = $('chatAttachRemove');
+
+    chatAttachBtn.addEventListener('click', () => chatFileInput.click());
+    chatAttachRemove.addEventListener('click', () => {
+      pendingImagePath = null;
+      chatAttachPreview.style.display = 'none';
+      chatFileInput.value = '';
+    });
+
+    chatFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        // Show preview
+        chatAttachImg.src = dataUrl;
+        chatAttachPreview.style.display = 'flex';
+
+        // Upload via WebSocket
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'file_upload',
+            filename: file.name,
+            data: dataUrl,
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Handle upload response
+    function handleFileUploaded(data) {
+      pendingImagePath = data.path;
+    }
+
+    // ---- Event Listeners ----
+    chatSlideToggle.addEventListener('click', toggleChatPanel);
+    chatSlideClose.addEventListener('click', closeChatPanel);
+
+    chatSlideInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+
+    chatSlideInput.addEventListener('input', () => {
+      chatSlideInput.style.height = 'auto';
+      chatSlideInput.style.height = Math.min(chatSlideInput.scrollHeight, 100) + 'px';
+    });
+
+    chatSlideSendBtn.addEventListener('click', sendChatMessage);
+
+    // ---- Mobile Web Speech API / Desktop remote_record ----
+    let webSpeechActive = false;
+    let webSpeechRecognition = null;
+    let silenceTimer = null;
+    let manualStop = false;         // 사용자가 수동으로 멈춘 건지 구분
+    let accumulatedText = '';       // continuous 모드에서 누적 텍스트
+    const SILENCE_TIMEOUT = 3000;   // 3초 무음 시 자동 종료
+
+    function clearSilenceTimer() {
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    }
+
+    function startSilenceTimer() {
+      clearSilenceTimer();
+      silenceTimer = setTimeout(() => {
+        if (webSpeechActive && webSpeechRecognition) {
+          console.log('[WebSpeech] Silence timeout — stopping');
+          manualStop = true;
+          webSpeechRecognition.stop();
+        }
+      }, SILENCE_TIMEOUT);
+    }
+
+    function stopWebSpeech() {
+      manualStop = true;
+      clearSilenceTimer();
+      if (webSpeechRecognition) {
+        try { webSpeechRecognition.stop(); } catch(e) {}
+      }
+    }
+
+    function initWebSpeech() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return null;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ko-KR';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        webSpeechActive = true;
+        manualStop = false;
+        accumulatedText = '';
+        setUIState('recording');
+        startSilenceTimer();
+      };
+
+      recognition.onresult = (event) => {
+        let allFinal = '';
+        let interim = '';
+        for (let i = 0; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            allFinal += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        accumulatedText = allFinal;
+        // Show combined text in input field
+        chatSlideInput.value = allFinal + (interim ? interim : '');
+        // Scroll down to show latest wrapped line
+        chatSlideInput.scrollTop = chatSlideInput.scrollHeight;
+        // Reset silence timer on every new result
+        startSilenceTimer();
+      };
+
+      recognition.onend = () => {
+        if (!manualStop && webSpeechActive) {
+          // iOS Safari가 자동으로 끊은 경우 — 재시작
+          console.log('[WebSpeech] Browser stopped — auto-restarting');
+          try { recognition.start(); } catch(e) {
+            // 재시작 실패 시 종료 처리
+            webSpeechActive = false;
+            setUIState('idle');
+            const text = chatSlideInput.value.trim();
+            if (text) sendChatMessage();
+          }
+          return;
+        }
+        // 수동 종료 또는 무음 타이머 종료
+        clearSilenceTimer();
+        webSpeechActive = false;
+        manualStop = false;
+        setUIState('idle');
+        const text = chatSlideInput.value.trim();
+        if (text) {
+          sendChatMessage();
+        } else if (ws && ws.readyState === WebSocket.OPEN) {
+          // 음성 없이 종료 → 서버에 idle 알림
+          ws.send(JSON.stringify({ type: 'state', value: 'idle' }));
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.log('[WebSpeech] Error:', event.error);
+        // no-speech는 무시하고 계속 (자동 재시작됨)
+        if (event.error === 'no-speech') return;
+        clearSilenceTimer();
+        webSpeechActive = false;
+        manualStop = false;
+        setUIState('idle');
+      };
+
+      return recognition;
+    }
+
+    function stopTtsPlayback() {
+      _pendingListenAfterTts = false;
+      if (!ttsAudioPlaying && ttsAudioQueue.length === 0) return;
+      const el = getTtsAudioEl();
+      el.pause();
+      el.onended = null;
+      el.onerror = null;
+      ttsAudioQueue = [];
+      ttsAudioPlaying = false;
+    }
+
+    chatSlideMicBtn.addEventListener('click', () => {
+      unlockTtsAudio();
+
+      // TTS 재생 중이면 즉시 중단
+      if (ttsAudioPlaying || ttsAudioQueue.length > 0) {
+        stopTtsPlayback();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'tts_interrupt' }));
+        }
+      }
+
+      if (isMobileView) {
+        // Mobile: use Web Speech API (phone mic)
+        if (!webSpeechRecognition) {
+          webSpeechRecognition = initWebSpeech();
+        }
+        if (!webSpeechRecognition) {
+          alert('이 브라우저에서 음성 인식이 지원되지 않습니다.');
+          return;
+        }
+        if (webSpeechActive) {
+          stopWebSpeech();
+        } else {
+          // Play "Yes, sir" before starting recognition (original speed)
+          try {
+            const ctx = getTtsAudioCtx();
+            fetch('/sounds/yes_sir.wav')
+              .then(r => r.arrayBuffer())
+              .then(buf => ctx.decodeAudioData(buf))
+              .then(decoded => {
+                const src = ctx.createBufferSource();
+                src.buffer = decoded;
+                src.connect(ctx.destination);
+                src.start(0);
+              }).catch(() => {});
+          } catch(e) {}
+          try { webSpeechRecognition.start(); } catch(e) {}
+        }
+      } else {
+        // Desktop: use WhisperFlow remote_record (Mac mic)
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'remote_record', value: 'toggle' }));
+        }
+      }
+    });
+
+    // Unified UI state manager — wraps applyTheme + mobile classes/text
+    function setUIState(state) {
+      // 1. PC: particle theme (skip if same state to avoid reset flicker)
+      if (THEMES[state] && state !== currentState) {
+        currentState = state;
+        applyTheme(currentState);
+      }
+
+      // 2. Mobile + PC: ghost-reactor aurora border classes
+      const hud = document.getElementById('hudContainer');
+      if (hud) {
+        hud.classList.remove('mobile-recording', 'mobile-thinking', 'mobile-speaking');
+        if (state === 'recording') hud.classList.add('mobile-recording');
+        else if (state === 'thinking' || state === 'processing') hud.classList.add('mobile-thinking');
+        else if (state === 'tts_playing') hud.classList.add('mobile-speaking');
+      }
+
+      // 3. Mobile status text
+      const mst = document.getElementById('mobileStatusText');
+      if (mst) {
+        const labels = {
+          idle: 'STANDBY',
+          recording: 'RECORDING',
+          processing: 'THINKING...',
+          thinking: 'THINKING...',
+          tts_playing: 'SPEAKING'
+        };
+        mst.textContent = labels[state] || 'STANDBY';
+      }
+
+      // 4. Chat mic button recording indicator
+      if (chatSlideMicBtn) {
+        if (state === 'recording') chatSlideMicBtn.classList.add('recording');
+        else chatSlideMicBtn.classList.remove('recording');
+      }
+    }
+
+    // Close panel on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && chatPanelOpen) {
+        closeChatPanel();
+      }
+    });
+
+    // ---- Session list request on connect (kept for compatibility) ----
+    function requestSessionList() {
+      // No longer needed - single session
+    }
+
+    // ---- Initialize ----
+    function initDefaultSession() {
+      loadChatMessages();
+    }
+
+    // ============================================================
+    //  INIT
+    // ============================================================
+    setUIState('idle');
+    connect();
+    initDefaultSession();
+  </script>
+</body>
+</html>
