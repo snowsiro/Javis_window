@@ -54,8 +54,11 @@ pip install -r requirements-extras.txt
 
 REM 실행
 run_whisperflow.bat
+
+REM (선택) 자비스 음성 서버 — 영국 남성 신경망 음성으로 응답 읽기
+setup_voice.bat
 ```
-> 수동 실행: `python -m whisperflow`
+> 수동 실행: `python -m whisperflow` · 자비스 음성 상세: [`qwen_tts_server/README.md`](qwen_tts_server/README.md)
 
 실행하면 **작업 표시줄 트레이(오른쪽 아래)** 에 🔵 아이콘이 나타납니다.
 아이콘을 우클릭하면 모든 메뉴에 접근할 수 있습니다.
