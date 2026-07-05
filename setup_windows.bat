@@ -32,6 +32,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo === Downloading wake word models (first time only) ===
+python -c "from openwakeword.utils import download_models; download_models(['hey_jarvis'])"
+if errorlevel 1 (
+    echo [WARN] Wake word model download failed.
+    echo        It will be retried automatically on first use.
+)
+
 echo.
 echo Optional features (camera / gesture / face recognition):
 echo   pip install -r requirements-extras.txt

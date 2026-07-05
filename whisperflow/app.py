@@ -932,18 +932,29 @@ class WhisperFlowApp:
             self.always_listen.stop()
         preset = self._detect_mic_preset()
         log(f"[상시청취] 프리셋: gain={preset['audio_gain']}, wake={preset['wake_threshold']}, speech={preset['speech_threshold']}")
-        self.always_listen = AlwaysListen(
-            on_double_clap=self._on_double_clap,
-            on_wake=self._on_wake_word,
-            on_speech_detected=self._on_speech_detected,
-            on_audio_level=self._on_audio_level,
-            on_conversation_end=self._on_conversation_end,
-            skip_boot_wait=skip_boot_wait,
-            audio_gain=preset['audio_gain'],
-            wake_threshold=preset['wake_threshold'],
-            speech_threshold=preset['speech_threshold'],
-        )
-        self.always_listen.start()
+        # 모델 다운로드/마이크 실패 등으로 상시 청취가 못 떠도
+        # 앱 본체(받아쓰기/TTS/트레이)는 계속 동작해야 한다.
+        try:
+            self.always_listen = AlwaysListen(
+                on_double_clap=self._on_double_clap,
+                on_wake=self._on_wake_word,
+                on_speech_detected=self._on_speech_detected,
+                on_audio_level=self._on_audio_level,
+                on_conversation_end=self._on_conversation_end,
+                skip_boot_wait=skip_boot_wait,
+                audio_gain=preset['audio_gain'],
+                wake_threshold=preset['wake_threshold'],
+                speech_threshold=preset['speech_threshold'],
+            )
+            self.always_listen.start()
+        except Exception as e:  # noqa: BLE001
+            log(f"[상시청취] 시작 실패 (앱은 계속 동작): {e}")
+            self._notify(
+                "WhisperFlow",
+                "상시 청취 시작 실패 — 인터넷 연결 확인 후 모드를 다시 켜주세요",
+            )
+            self.always_listen = None
+            return
         from . import filming_scenarios
         filming_scenarios._always_listen_ref = self.always_listen
 
