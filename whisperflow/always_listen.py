@@ -112,6 +112,27 @@ class AlwaysListen:
     # 공개 인터페이스
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _ensure_oww_models() -> None:
+        """openWakeWord 모델 파일이 없으면 최초 1회 자동 다운로드.
+
+        pip 패키지에는 모델(.onnx)이 포함되지 않으므로 첫 실행 시
+        받아야 한다 (Whisper 모델과 같은 패턴, 인터넷 필요).
+        """
+        import openwakeword
+        models_dir = Path(openwakeword.__file__).parent / "resources" / "models"
+        required = [
+            models_dir / "hey_jarvis_v0.1.onnx",
+            models_dir / "melspectrogram.onnx",
+            models_dir / "embedding_model.onnx",
+        ]
+        if all(p.exists() for p in required):
+            return
+        print("[AlwaysListen] 웨이크 워드 모델 다운로드 중 (최초 1회, 인터넷 필요)...")
+        from openwakeword.utils import download_models
+        download_models(model_names=["hey_jarvis"])
+        print("[AlwaysListen] 웨이크 워드 모델 다운로드 완료.")
+
     def start(self) -> None:
         if self._running:
             return
@@ -119,6 +140,13 @@ class AlwaysListen:
         print("[AlwaysListen] Silero VAD 모델 로드 중...")
         self._silero_model = load_silero_vad()
         print("[AlwaysListen] Silero VAD 로드 완료.")
+
+        # 모델 파일이 없으면 자동 다운로드 (실패 시 아래 Model() 에서 예외 →
+        # app.py 가 잡아서 앱은 계속 동작)
+        try:
+            self._ensure_oww_models()
+        except Exception as e:  # noqa: BLE001
+            print(f"[AlwaysListen] 모델 자동 다운로드 실패 (계속 시도): {e}")
 
         print("[AlwaysListen] openWakeWord 모델 로드 중 (hey_jarvis)...")
         self._oww_model = Model(
